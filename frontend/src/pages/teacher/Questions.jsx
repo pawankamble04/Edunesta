@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import API from "../../services/api";
 
@@ -17,6 +17,12 @@ export default function Questions() {
   const [aiReview, setAiReview] = useState(null);
   const [loadingAI, setLoadingAI] = useState(false);
 
+  // ✅ STEP 2: store question list
+  const [questions, setQuestions] = useState([]);
+
+  // ✅ STEP 3B: edit mode
+  const [editingId, setEditingId] = useState(null);
+
   /* ---------------- OPTIONS ---------------- */
   const setOption = (i, value) => {
     const options = [...question.options];
@@ -33,37 +39,49 @@ export default function Questions() {
     }));
   };
 
-  /* ---------------- AI REVIEW ---------------- */
-  const checkWithAI = async () => {
-    try {
-      setLoadingAI(true);
-      setAiReview(null);
+  // ✅ STEP 2: load questions for this test
+  useEffect(() => {
+    if (!testId) return;
 
-      const res = await API.post("/ai/question-review", {
-        question: question.text,
-        options: question.options,
-        correctAnswer: question.correctAnswers.map(
-          (i) => question.options[i]
-        ),
-        topic: question.topic || "General",
-      });
+    API.get(`/questions/${testId}`)
+      .then((res) => setQuestions(res.data))
+      .catch(() => alert("Failed to load questions"));
+  }, [testId]);
 
-      // Ensure parsed JSON
-      let parsed =
-        typeof res.data.review === "string"
-          ? JSON.parse(res.data.review)
-          : res.data.review;
+const checkWithAI = async () => {
+  try {
+    setLoadingAI(true);
+    setAiReview(null);
 
-      setAiReview(parsed);
-    } catch (err) {
-      alert("AI review failed or returned invalid format");
-    } finally {
-      setLoadingAI(false);
-    }
-  };
+    const res = await API.post("/ai/question-review", {
+      question: question.text,
+      options: question.options,
+      correctAnswer: question.correctAnswers.map(
+        (i) => question.options[i]
+      ),
+      topic: question.topic || "General",
+    });
+
+    let parsed =
+      typeof res.data.review === "string"
+        ? JSON.parse(res.data.review)
+        : res.data.review;
+
+    setAiReview(parsed);
+  } catch (err) {
+    alert("AI review failed or returned invalid format");
+  } finally {
+    setLoadingAI(false);
+  }
+};
 
   /* ---------------- SAVE QUESTION ---------------- */
   const saveQuestion = async () => {
+    if (question.correctAnswers.length !== 1) {
+      alert("Select exactly one correct answer");
+      return;
+    }
+
     if (aiReview && aiReview.clarityScore < 5) {
       alert(
         "Question clarity is too low. Please improve the question before saving."
@@ -72,12 +90,26 @@ export default function Questions() {
     }
 
     try {
-      await API.post("/questions", {
-        testId,
-        ...question,
-      });
+      await (editingId
+        ? API.put(`/questions/${editingId}`, {
+            text: question.text,
+            options: question.options,
+            correctAnswer: question.correctAnswers[0],
+            marks: question.marks,
+            topic: question.topic,
+          })
+        : API.post(`/questions/${testId}`, {
+            text: question.text,
+            options: question.options,
+            correctAnswer: question.correctAnswers[0],
+            marks: question.marks,
+            topic: question.topic,
+          })
+      );
 
       alert("Question saved successfully");
+
+      setEditingId(null); // ✅ reset edit mode
 
       setQuestion({
         text: "",
@@ -88,14 +120,90 @@ export default function Questions() {
       });
 
       setAiReview(null);
+
+      // 🔄 refresh question list
+      const res = await API.get(`/questions/${testId}`);
+      setQuestions(res.data);
     } catch {
       alert("Error saving question");
     }
   };
 
+  // ✅ STEP 2: delete question
+  const deleteQuestion = async (id) => {
+    if (!window.confirm("Delete this question?")) return;
+
+    try {
+      await API.delete(`/questions/${id}`);
+      setQuestions((prev) => prev.filter((q) => q._id !== id));
+    } catch {
+      alert("Failed to delete question");
+    }
+  };
+
+  // ✅ STEP 3B: load question into form
+  const editQuestion = (q) => {
+    setEditingId(q._id);
+    setQuestion({
+      text: q.text,
+      options: q.options,
+      correctAnswers: [q.correctAnswer],
+      marks: q.marks,
+      topic: q.topic || "",
+    });
+    setAiReview(null);
+  };
+
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-bold mb-6">Add Question</h1>
+
+      {/* ✅ STEP 2: QUESTION LIST */}
+      {questions.length > 0 && (
+        <div className="mb-8 bg-white border rounded p-4">
+          <h2 className="font-semibold mb-3">
+            Questions in this Test
+          </h2>
+
+          <ul className="space-y-2 text-sm">
+            {questions.map((q, idx) => (
+              <li
+                key={q._id}
+                className="border p-3 rounded flex justify-between"
+              >
+                <div>
+                  <p className="font-medium">
+                    {idx + 1}. {q.text}
+                  </p>
+                  <p className="text-gray-600">
+                    Options: {q.options.length} | Correct: Option{" "}
+                    {q.correctAnswer + 1}
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => editQuestion(q)}
+                    className="text-blue-600 text-sm"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    onClick={() => deleteQuestion(q._id)}
+                    className="text-red-600 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <h1 className="text-xl font-bold mb-6">
+        {editingId ? "Edit Question" : "Add Question"}
+      </h1>
 
       <div className="bg-white border rounded p-6 space-y-4">
         <textarea
@@ -146,7 +254,6 @@ export default function Questions() {
           }
         />
 
-        {/* AI CHECK BUTTON */}
         <button
           onClick={checkWithAI}
           disabled={loadingAI}
@@ -155,68 +262,18 @@ export default function Questions() {
           {loadingAI ? "Analyzing with AI..." : "Check Question with AI"}
         </button>
 
-        {/* AI REVIEW OUTPUT */}
         {aiReview && (
-          <div
-            className={`border rounded p-4 text-sm ${
-              aiReview.clarityScore < 5
-                ? "bg-red-50 border-red-300"
-                : "bg-green-50 border-green-300"
-            }`}
-          >
-            <h3 className="font-semibold mb-2">
-              AI Quality Review
-            </h3>
-
-            <p>
-              <strong>Difficulty:</strong>{" "}
-              {aiReview.difficulty}
-            </p>
-
-            <p>
-              <strong>Clarity Score:</strong>{" "}
-              {aiReview.clarityScore}/10
-            </p>
-
-            {aiReview.clarityScore < 5 && (
-              <p className="text-red-600 font-semibold mt-2">
-                ⚠ Question clarity is low. Improvement recommended.
-              </p>
-            )}
-
-            {aiReview.issues?.length > 0 && (
-              <div className="mt-2">
-                <strong>Issues:</strong>
-                <ul className="list-disc ml-5">
-                  {aiReview.issues.map((i, idx) => (
-                    <li key={idx}>{i}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {aiReview.improvementSuggestions?.length > 0 && (
-              <div className="mt-2">
-                <strong>Suggestions:</strong>
-                <ul className="list-disc ml-5">
-                  {aiReview.improvementSuggestions.map(
-                    (s, idx) => (
-                      <li key={idx}>{s}</li>
-                    )
-                  )}
-                </ul>
-              </div>
-            )}
+          <div className="border rounded p-4 text-sm bg-green-50 border-green-300">
+            <strong>Clarity Score:</strong> {aiReview.clarityScore}/10
           </div>
         )}
 
-        {/* SAVE */}
         <button
           onClick={saveQuestion}
           disabled={aiReview && aiReview.clarityScore < 5}
-          className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="bg-green-600 text-white px-4 py-2 rounded"
         >
-          Save Question
+          {editingId ? "Update Question" : "Save Question"}
         </button>
       </div>
     </div>

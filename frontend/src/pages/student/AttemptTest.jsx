@@ -1,25 +1,27 @@
 import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import API from "../../services/api";
 
 export default function AttemptTest() {
-  const questions = [
-    {
-      id: 1,
-      text: "What is JVM?",
-      options: ["Compiler", "Interpreter", "Virtual Machine", "OS"],
-    },
-    {
-      id: 2,
-      text: "Java is ___ language",
-      options: ["Low-level", "High-level", "Machine", "Assembly"],
-    },
-  ];
+  // ✅ CHANGE 1: get testId from URL
+  const { testId } = useParams();
+
+  // ✅ CHANGE 2: questions from backend (not hard-coded)
+  const [questions, setQuestions] = useState([]);
 
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
   const [submitted, setSubmitted] = useState(false);
 
-  // TIMER
+  // ✅ CHANGE 3: fetch questions for this test
+  useEffect(() => {
+    API.get(`/questions/${testId}`)
+      .then((res) => setQuestions(res.data))
+      .catch((err) => console.error("Failed to load questions", err));
+  }, [testId]);
+
+  // TIMER (unchanged)
   useEffect(() => {
     if (submitted) return;
 
@@ -51,6 +53,11 @@ export default function AttemptTest() {
     setSubmitted(true);
   };
 
+  // ✅ safe loading
+  if (!questions.length) {
+    return <p className="text-center mt-10">Loading questions...</p>;
+  }
+
   if (submitted) {
     return (
       <div className="text-center">
@@ -68,7 +75,10 @@ export default function AttemptTest() {
         <p>
           Question {current + 1} / {questions.length}
         </p>
-        <p>Time Left: {Math.floor(timeLeft / 60)}:{timeLeft % 60}</p>
+        <p>
+          Time Left: {Math.floor(timeLeft / 60)}:
+          {String(timeLeft % 60).padStart(2, "0")}
+        </p>
       </div>
 
       <div className="bg-white p-6 rounded shadow">

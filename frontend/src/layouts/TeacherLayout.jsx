@@ -11,6 +11,7 @@ export default function TeacherLayout() {
           <Link to="/teacher/tests">Tests</Link>
           <Link to="/teacher/create-test">Create Test</Link>
           <Link to="/teacher/materials">Materials</Link>
+          <Link to="/teacher/questions">Questions</Link>
         </nav>
       </aside>
 

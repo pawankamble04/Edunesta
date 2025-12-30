@@ -21,6 +21,22 @@ export default function Tests() {
 
     fetchTests();
   }, []);
+// ✅ STEP 3A: publish / unpublish test
+const togglePublish = async (id) => {
+  try {
+    const res = await API.put(`/tests/${id}/publish`);
+
+    setTests((prev) =>
+      prev.map((t) =>
+        t._id === id
+          ? { ...t, isPublished: res.data.isPublished }
+          : t
+      )
+    );
+  } catch {
+    alert("Failed to update publish status");
+  }
+};
 
   return (
     <div>
@@ -74,6 +90,15 @@ export default function Tests() {
                   >
                     Questions
                   </Link>
+                  <button
+  onClick={() => togglePublish(test._id)}
+  className={`text-sm ${
+    test.isPublished ? "text-red-600" : "text-green-600"
+  }`}
+>
+  {test.isPublished ? "Unpublish" : "Publish"}
+</button>
+
 
                   {/* ✅ View Submissions (IMPORTANT) */}
                   <button

@@ -24,3 +24,24 @@ export const listTests = async (req, res) => {
   const tests = await Test.find();
   res.json(tests);
 };
+// ===============================
+// PUBLISH / UNPUBLISH TEST
+// ===============================
+export const togglePublishTest = async (req, res) => {
+  const { id } = req.params;
+
+  const test = await Test.findById(id);
+  if (!test) {
+    return res.status(404).json({ message: "Test not found" });
+  }
+
+  test.isPublished = !test.isPublished;
+  await test.save();
+
+  res.json({
+    message: test.isPublished
+      ? "Test published successfully"
+      : "Test unpublished successfully",
+    isPublished: test.isPublished,
+  });
+};

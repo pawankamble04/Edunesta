@@ -90,7 +90,7 @@ export default function App() {
         >
           <Route index element={<StudentDashboard />} />
           <Route path="tests" element={<AvailableTests />} />
-          <Route path="attempt" element={<AttemptTest />} />
+          <Route path="attempt/:testId" element={<AttemptTest />} />
           <Route path="results" element={<Results />} />
           <Route path="materials" element={<StudentMaterials />} />
         </Route>
