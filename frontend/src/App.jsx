@@ -1,16 +1,19 @@
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Navbar from "./components/Navbar";
 import RequireAuth from "./auth/RequireAuth";
-
-/* Public Pages */
-import Home from "./pages/common/Home";
-import Login from "./pages/common/Login";
-import Register from "./pages/common/Register";
+import api from "./utils/axios";
 
 /* Layouts */
 import AdminLayout from "./layouts/AdminLayout";
 import TeacherLayout from "./layouts/TeacherLayout";
 import StudentLayout from "./layouts/StudentLayout";
+import ParentLayout from "./layouts/ParentLayout";
+
+/* Public Pages */
+import Home from "./pages/common/Home";
+import Login from "./pages/common/Login";
+import Register from "./pages/common/Register";
 
 /* Admin Pages */
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -33,7 +36,24 @@ import AttemptTest from "./pages/student/AttemptTest";
 import Results from "./pages/student/Results";
 import StudentMaterials from "./pages/student/Materials";
 
+/* Parent Pages */
+import ParentDashboard from "./pages/parent/ParentDashboard";
+
 export default function App() {
+  // ✅ AUTH PERSISTENCE CHECK
+  useEffect(() => {
+    const syncAuth = async () => {
+      try {
+        const res = await api.get("/auth/me", { withCredentials: true });
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      } catch {
+        localStorage.removeItem("user");
+      }
+    };
+
+    syncAuth();
+  }, []);
+
   return (
     <>
       <Navbar />
@@ -45,54 +65,43 @@ export default function App() {
         <Route path="/register" element={<Register />} />
 
         {/* ADMIN */}
-        <Route
-          path="/admin"
-          element={
-            <RequireAuth role="admin">
-              <AdminLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<Users />} />
-          <Route path="teachers" element={<Teachers />} />
-          <Route path="moderation" element={<Moderation />} />
+        <Route element={<RequireAuth role="admin" />}>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<Users />} />
+            <Route path="teachers" element={<Teachers />} />
+            <Route path="moderation" element={<Moderation />} />
+          </Route>
         </Route>
 
         {/* TEACHER */}
-        <Route
-          path="/teacher"
-          element={
-            <RequireAuth role="teacher">
-              <TeacherLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<TeacherDashboard />} />
-          <Route path="tests" element={<Tests />} />
-          <Route path="create-test" element={<CreateTest />} />
-          <Route path="questions" element={<Questions />} />
-
-          {/* ✅ FIXED ROUTE (IMPORTANT CHANGE) */}
-          <Route path="submissions/:testId" element={<Submissions />} />
-
-          <Route path="materials" element={<TeacherMaterials />} />
+        <Route element={<RequireAuth role="teacher" />}>
+          <Route path="/teacher" element={<TeacherLayout />}>
+            <Route index element={<TeacherDashboard />} />
+            <Route path="tests" element={<Tests />} />
+            <Route path="create-test" element={<CreateTest />} />
+            <Route path="questions" element={<Questions />} />
+            <Route path="submissions/:testId" element={<Submissions />} />
+            <Route path="materials" element={<TeacherMaterials />} />
+          </Route>
         </Route>
 
         {/* STUDENT */}
-        <Route
-          path="/student"
-          element={
-            <RequireAuth role="student">
-              <StudentLayout />
-            </RequireAuth>
-          }
-        >
-          <Route index element={<StudentDashboard />} />
-          <Route path="tests" element={<AvailableTests />} />
-          <Route path="attempt/:testId" element={<AttemptTest />} />
-          <Route path="results" element={<Results />} />
-          <Route path="materials" element={<StudentMaterials />} />
+        <Route element={<RequireAuth role="student" />}>
+          <Route path="/student" element={<StudentLayout />}>
+            <Route index element={<StudentDashboard />} />
+            <Route path="tests" element={<AvailableTests />} />
+            <Route path="attempt/:testId" element={<AttemptTest />} />
+            <Route path="results" element={<Results />} />
+            <Route path="materials" element={<StudentMaterials />} />
+          </Route>
+        </Route>
+
+        {/* PARENT */}
+        <Route element={<RequireAuth role="parent" />}>
+          <Route path="/parent" element={<ParentLayout />}>
+            <Route index element={<ParentDashboard />} />
+          </Route>
         </Route>
       </Routes>
     </>

@@ -9,7 +9,9 @@ import {
   getTest,
   publishTest,
   listTests,
+  deleteTest,
 } from "../controllers/testController.js";
+
 
 const router = express.Router();
 

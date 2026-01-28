@@ -7,31 +7,44 @@ const TestSchema = new mongoose.Schema(
       required: true,
     },
     description: String,
+
     durationMinutes: {
       type: Number,
       default: 30,
     },
+
+    // ✅ ADD THIS (TEACHER-DEFINED TOTAL)
+    totalMarks: {
+      type: Number,
+      required: true,
+    },
+
     startTime: Date,
     endTime: Date,
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     questions: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Question",
       },
     ],
+
     allowRetake: {
       type: Boolean,
       default: false,
     },
+
     maxAttempts: {
       type: Number,
       default: 1,
     },
+
     isPublished: {
       type: Boolean,
       default: false,

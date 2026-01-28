@@ -37,6 +37,23 @@ const togglePublish = async (id) => {
     alert("Failed to update publish status");
   }
 };
+const deleteTest = async (id) => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this test?\nAll questions and submissions will be deleted."
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await API.delete(`/tests/${id}`);
+
+      // remove test from UI
+      setTests((prev) => prev.filter((t) => t._id !== id));
+    } catch (err) {
+      console.error("Delete test failed", err);
+      alert("Failed to delete test");
+    }
+  };
 
   return (
     <div>
@@ -92,6 +109,7 @@ const togglePublish = async (id) => {
                   </Link>
                   <button
   onClick={() => togglePublish(test._id)}
+  
   className={`text-sm ${
     test.isPublished ? "text-red-600" : "text-green-600"
   }`}
@@ -108,6 +126,14 @@ const togglePublish = async (id) => {
                     className="text-indigo-600 hover:underline"
                   >
                     Submissions
+                  </button>
+
+                  {/* DELETE TEST */}
+                  <button
+                    onClick={() => deleteTest(test._id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
                   </button>
                 </td>
               </tr>

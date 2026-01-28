@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import API from "../../services/api";
+import api from "../../utils/axios"; // ✅ SAME axios instance as Login
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -13,15 +13,21 @@ export default function Register() {
     e.preventDefault();
 
     try {
-      await API.post("/auth/register", {
-        name,
-        email,
-        password,
-        role,
-      });
+      await api.post(
+        "/auth/register",
+        {
+          name,
+          email,
+          password,
+          role,
+        },
+        { withCredentials: true } // ✅ SAFE FOR PRODUCTION
+      );
+
+      alert("Registration successful. Please login.");
       navigate("/login");
     } catch (err) {
-      alert("Registration failed");
+      alert(err.response?.data?.msg || "Registration failed");
     }
   };
 
@@ -67,9 +73,13 @@ export default function Register() {
         >
           <option value="student">Student</option>
           <option value="teacher">Teacher</option>
+          <option value="parent">Parent</option>
         </select>
 
-        <button className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">
+        <button
+          type="submit"
+          className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700"
+        >
           Create Account
         </button>
 

@@ -49,9 +49,30 @@ export default function AttemptTest() {
     }
   };
 
-  const handleSubmit = () => {
+const handleSubmit = async () => {
+  try {
+    // ✅ FIX: map answers using QUESTION ID, not index
+    const formattedAnswers = Object.entries(answers).map(
+      ([questionIndex, selectedOption]) => ({
+        question: questions[Number(questionIndex)]._id,
+        selected: Number(selectedOption),
+      })
+    );
+
+    await API.post("/submissions", {
+      testId,
+      answers: formattedAnswers,
+    });
+
     setSubmitted(true);
-  };
+  } catch (err) {
+    console.error("Failed to submit test", err);
+    alert("Submission failed");
+  }
+};
+
+
+
 
   // ✅ safe loading
   if (!questions.length) {

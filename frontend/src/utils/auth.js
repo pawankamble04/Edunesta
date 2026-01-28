@@ -1,3 +1,8 @@
+import api from "../utils/axios";
+
+/**
+ * Get logged-in user (safe)
+ */
 export const getUser = () => {
   try {
     return JSON.parse(localStorage.getItem("user"));
@@ -6,11 +11,26 @@ export const getUser = () => {
   }
 };
 
+/**
+ * Check login state
+ * (based on user object, not token)
+ */
 export const isLoggedIn = () => {
-  return !!localStorage.getItem("token");
+  return !!localStorage.getItem("user");
 };
 
-export const logout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
+/**
+ * Logout (PRODUCTION SAFE)
+ * - clears backend cookie
+ * - clears frontend state
+ */
+export const logout = async () => {
+  try {
+    await api.post("/auth/logout", {}, { withCredentials: true });
+  } catch (err) {
+    console.error("Logout error:", err);
+  } finally {
+    localStorage.removeItem("user");
+    window.dispatchEvent(new Event("storage"));
+  }
 };

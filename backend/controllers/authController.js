@@ -11,34 +11,36 @@ export const register = async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    let user = await User.findOne({ email });
-    if (user) {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ msg: "User already exists" });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashed = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    user = new User({
+    const user = await User.create({
       name,
       email,
-      password: hashed,
+      password: hashedPassword,
       role: role || "student",
     });
 
-    await user.save();
-
     const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXP || "7d" }
+      { expiresIn: "7d" }
     );
 
-    res.json({
-      token,
+    // ✅ SEND TOKEN AS COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.status(201).json({
+      msg: "Registration successful",
       user: {
         id: user._id,
         name: user.name,
@@ -47,7 +49,7 @@ export const register = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Register error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };
@@ -72,16 +74,21 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
+      { id: user._id, role: user.role, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXP || "7d" }
+      { expiresIn: "7d" }
     );
 
+    // ✅ SEND TOKEN AS COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.json({
-      token,
+      msg: "Login successful",
       user: {
         id: user._id,
         name: user.name,
@@ -90,7 +97,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };

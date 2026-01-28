@@ -7,11 +7,13 @@ const submissionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     test: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Test",
       required: true,
     },
+
     answers: [
       {
         question: {
@@ -22,7 +24,19 @@ const submissionSchema = new mongoose.Schema(
         isCorrect: Boolean,
       },
     ],
-    score: Number,
+
+    // ✅ obtained marks
+    score: {
+      type: Number,
+      required: true,
+    },
+
+    // ✅ total marks for this test (teacher-defined)
+    totalMarks: {
+      type: Number,
+      required: true,
+    },
+
     submittedAt: {
       type: Date,
       default: Date.now,

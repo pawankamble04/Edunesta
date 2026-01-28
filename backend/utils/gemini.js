@@ -33,6 +33,11 @@ export const askGemini = async (prompt) => {
 
     return result.response.text();
   } catch (err) {
+    if (err.status === 429) {
+      console.log("⚠️ Gemini quota exceeded");
+      return "⚠️ AI limit reached. Please try again later.";
+    }
+
     console.error("🔥 GEMINI RUNTIME ERROR:", err);
     throw new Error("AI service unavailable");
   }

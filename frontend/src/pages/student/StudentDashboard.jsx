@@ -29,17 +29,19 @@ export default function StudentDashboard() {
         }
 
         // 2️⃣ Calculate stats
-        let totalScore = 0;
-        let maxScore = 0;
+let totalScore = 0;
+let maxScore = 0;
 
-        submissions.forEach((s) => {
-          totalScore += s.score;
-          maxScore += s.test?.questions?.length || 10;
-        });
+submissions.forEach((s) => {
+  totalScore += s.score || 0;
+  maxScore += s.totalMarks || 0;
+});
 
-        const percentage = Math.round(
-          (totalScore / (maxScore || 1)) * 100
-        );
+const percentage =
+  maxScore > 0
+    ? Math.round((totalScore / maxScore) * 100)
+    : 0;
+
 
         // 3️⃣ Skill level detection
         let level = "Beginner";

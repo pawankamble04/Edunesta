@@ -45,7 +45,7 @@ export default function Submissions() {
           {subs.map((s) => (
             <tr key={s._id} className="border-t">
               <td className="p-3">{s.student.name}</td>
-              <td>{s.score}</td>
+              <td>{s.score} / {s.totalMarks ?? s.test?.totalMarks ?? "-"} </td>
               <td>{new Date(s.submittedAt).toLocaleString()}</td>
             </tr>
           ))}

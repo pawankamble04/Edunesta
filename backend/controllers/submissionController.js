@@ -7,25 +7,48 @@ import ExcelJS from "exceljs";
    (UNCHANGED – YOUR LOGIC)
 ================================ */
 export const submitTest = async (req, res) => {
-  const questions = await Question.find({ test: req.body.testId });
+  const { testId, answers } = req.body;
+
+  // 🔒 prevent duplicate submission
+  const existing = await Submission.findOne({
+    student: req.user.id,
+    test: testId,
+  });
+
+  if (existing) {
+    return res
+      .status(400)
+      .json({ message: "Test already submitted" });
+  }
+
+  const questions = await Question.find({ test: testId });
+
   let score = 0;
+  let totalMarks = 0;
 
   questions.forEach((q) => {
-    const ans = req.body.answers.find(
+    totalMarks += q.marks;
+
+    const ans = answers.find(
       (a) => String(a.question) === String(q._id)
     );
-    if (ans && ans.selected === q.correctAnswer) score += q.marks;
+
+    if (ans && Number(ans.selected) === q.correctAnswer) {
+      score += q.marks;
+    }
   });
 
   await Submission.create({
     student: req.user.id,
-    test: req.body.testId,
-    answers: req.body.answers,
+    test: testId,
+    answers,
     score,
+    totalMarks,
   });
 
-  res.json({ score });
+  res.json({ score, totalMarks });
 };
+
 
 /* ================================
    TEACHER – VIEW SUBMISSIONS
@@ -45,9 +68,11 @@ export const getSubmissionsForTest = async (req, res) => {
 ================================ */
 export const getMyResults = async (req, res) => {
   const results = await Submission.find({ student: req.user.id })
-    .populate("test", "title durationMinutes");
+    .populate("test", "title totalMarks");
+
   res.json(results);
 };
+
 
 /* ================================
    TEACHER – EXPORT EXCEL (NEW)

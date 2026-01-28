@@ -1,11 +1,18 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 
-export default function RequireAuth({ role, children }) {
-  const token = localStorage.getItem("token");
+export default function RequireAuth({ role }) {
   const user = JSON.parse(localStorage.getItem("user"));
 
-  if (!token || !user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
+  // ❌ Not logged in
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-  return children;
+  // ❌ Role mismatch
+  if (role && user.role.toLowerCase() !== role.toLowerCase()) {
+    return <Navigate to="/" replace />;
+  }
+
+  // ✅ Authorized
+  return <Outlet />;
 }

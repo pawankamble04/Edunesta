@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import API from "../../services/api";
 import { getUser } from "../../utils/auth";
 
-export default function Results() {
+export default function Results({ studentId = null }) {
   const [results, setResults] = useState([]);
   const [aiSummary, setAiSummary] = useState(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -10,12 +10,16 @@ export default function Results() {
 
   /* ---------------- LOAD RESULTS ---------------- */
   useEffect(() => {
-    API.get("/submissions/my")
+    const endpoint = studentId
+      ? `/submissions/student/${studentId}`
+      : "/submissions/my";
+
+    API.get(endpoint)
       .then((res) => setResults(res.data))
       .catch((err) =>
         console.error("Error fetching results:", err)
       );
-  }, []);
+  }, [studentId]);
 
   /* ---------------- AI WEAK TOPIC SUMMARY ---------------- */
   const analyzeWeakTopics = async () => {
@@ -41,7 +45,9 @@ export default function Results() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold mb-6">My Results</h1>
+      <h1 className="text-xl font-bold mb-6">
+        {studentId ? "Student Results" : "My Results"}
+      </h1>
 
       {/* ================= AI ANALYSIS ================= */}
       <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-lg p-5">
@@ -107,7 +113,7 @@ export default function Results() {
             <tr key={r._id} className="border-t">
               <td className="p-2">{r.test.title}</td>
               <td>{r.test.durationMinutes} mins</td>
-              <td className="font-semibold">{r.score}</td>
+              <td className="font-semibold"> {r.score} / {r.totalMarks}</td> 
               <td>
                 {new Date(
                   r.submittedAt
