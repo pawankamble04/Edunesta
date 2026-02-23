@@ -20,6 +20,8 @@ import submissionRoutes from "./routes/submissions.js";
 import materialRoutes from "./routes/materials.js";
 import adminRoutes from "./routes/admin.js";
 import aiRoutes from "./routes/ai.js";
+import parentRoutes from "./routes/parents.js";
+import analyticsRoutes from "./routes/analytics.js";
 import testGemini from "./routes/testGemini.js";
 import listModels from "./routes/listModels.js";
 import parentRoutes from "./routes/parents.js";
@@ -115,6 +117,7 @@ app.get("/", (req, res) => {
   res.json({
     status: "ok",
     service: "EduNesta Backend",
+    environment: process.env.NODE_ENV,
     time: new Date().toISOString(),
   });
 });

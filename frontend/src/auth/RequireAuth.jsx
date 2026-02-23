@@ -14,5 +14,11 @@ export default function RequireAuth({ role, children }) {
     return <Navigate to="/" />;
   }
 
-  return children;
+  // ❌ Role mismatch
+  if (role && user.role.toLowerCase() !== role.toLowerCase()) {
+    return <Navigate to="/" replace />;
+  }
+
+  // ✅ Authorized
+  return <Outlet />;
 }

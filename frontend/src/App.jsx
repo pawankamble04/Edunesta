@@ -1,11 +1,8 @@
 import { Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Navbar from "./components/Navbar";
 import RequireAuth from "./auth/RequireAuth";
-
-/* Public Pages */
-import Home from "./pages/common/Home";
-import Login from "./pages/common/Login";
-import Register from "./pages/common/Register";
+import api from "./utils/axios";
 
 /* Layouts */
 import AdminLayout from "./layouts/AdminLayout";
@@ -42,7 +39,24 @@ import StudentLectures from "./pages/student/Lectures";
 import ParentDashboard from "./pages/parent/ParentDashboard";
 import ParentResults from "./pages/parent/ParentResults";
 
+/* Parent Pages */
+import ParentDashboard from "./pages/parent/ParentDashboard";
+
 export default function App() {
+  // ✅ AUTH PERSISTENCE CHECK
+  useEffect(() => {
+    const syncAuth = async () => {
+      try {
+        const res = await api.get("/auth/me", { withCredentials: true });
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      } catch {
+        localStorage.removeItem("user");
+      }
+    };
+
+    syncAuth();
+  }, []);
+
   return (
     <>
       <Navbar />

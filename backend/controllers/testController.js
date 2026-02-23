@@ -424,3 +424,28 @@ export const togglePublishTest = async (req, res) => {
     });
   }
 };
+export const deleteTest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const test = await Test.findById(id);
+    if (!test) {
+      return res.status(404).json({ message: "Test not found" });
+    }
+
+    // 🔐 Only creator teacher can delete
+    if (String(test.createdBy) !== String(req.user.id)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    // 🧹 Cascade delete
+    await Question.deleteMany({ test: id });
+    await Submission.deleteMany({ test: id });
+    await Test.findByIdAndDelete(id);
+
+    res.json({ message: "Test deleted successfully" });
+  } catch (err) {
+    console.error("Delete test error:", err);
+    res.status(500).json({ message: "Failed to delete test" });
+  }
+};

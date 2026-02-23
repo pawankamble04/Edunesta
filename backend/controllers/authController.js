@@ -69,7 +69,7 @@ export const register = async (req, res) => {
       teacherJoinCode = await generateUniqueTeacherJoinCode();
     }
 
-    user = new User({
+    const user = await User.create({
       name,
       email,
       password: hashed,
@@ -127,12 +127,20 @@ export const login = async (req, res) => {
 
     const token = createAuthToken(user);
 
+    // ✅ SEND TOKEN AS COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.json({
       token,
       user: mapAuthUser(user),
     });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ msg: "Server error" });
   }
 };

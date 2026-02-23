@@ -285,6 +285,14 @@ export default function Tests() {
                   >
                     Submissions
                   </button>
+
+                  {/* DELETE TEST */}
+                  <button
+                    onClick={() => deleteTest(test._id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

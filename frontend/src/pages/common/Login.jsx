@@ -12,7 +12,7 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Redirect if already logged in
+  // ✅ Redirect if already logged in (based on user info)
   useEffect(() => {
     const token = getToken();
     const user = getUser();
