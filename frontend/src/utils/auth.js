@@ -1,16 +1,11 @@
-export const getUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem("user"));
-  } catch {
-    return null;
-  }
-};
+import {
+  clearAuth,
+  getUser as getStoredUser,
+  isLoggedIn as hasAuth,
+} from "./storage";
 
-export const isLoggedIn = () => {
-  return !!localStorage.getItem("token");
-};
+export const getUser = () => getStoredUser();
 
-export const logout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-};
+export const isLoggedIn = () => hasAuth();
+
+export const logout = () => clearAuth();

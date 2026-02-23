@@ -1,11 +1,14 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
-import { permit } from "../middleware/roles.js";
+import authorize from "../middleware/roles.js";
+import { validate } from "../middleware/validate.js";
+import { objectIdParamSchema, submitTestSchema } from "../validation/schemas.js";
 
 import {
   submitTest,
   getSubmissionsForTest,
   getMyResults,
+  getMyDailyStatus,
   exportSubmissionsExcel,
 } from "../controllers/submissionController.js";
 
@@ -14,12 +17,33 @@ const router = express.Router();
 // ===============================
 // Student submits test
 // ===============================
-router.post("/", protect, permit("student"), submitTest);
+router.post(
+  "/submit",
+  protect,
+  authorize("student"),
+  validate(submitTestSchema),
+  submitTest
+);
 
 // ===============================
 // Student results history
 // ===============================
-router.get("/my", protect, permit("student"), getMyResults);
+router.get(
+  "/my",
+  protect,
+  authorize("student"),
+  getMyResults
+);
+
+// ===============================
+// Student daily status (today only)
+// ===============================
+router.get(
+  "/daily-status",
+  protect,
+  authorize("student"),
+  getMyDailyStatus
+);
 
 // ===============================
 // Teacher views submissions for a test
@@ -27,7 +51,8 @@ router.get("/my", protect, permit("student"), getMyResults);
 router.get(
   "/test/:testId",
   protect,
-  permit("teacher"),
+  authorize("teacher"),
+  validate(objectIdParamSchema("testId")),
   getSubmissionsForTest
 );
 
@@ -37,7 +62,8 @@ router.get(
 router.get(
   "/export/:testId",
   protect,
-  permit("teacher"),
+  authorize("teacher"),
+  validate(objectIdParamSchema("testId")),
   exportSubmissionsExcel
 );
 

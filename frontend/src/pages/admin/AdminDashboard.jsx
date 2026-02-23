@@ -1,27 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import api from "../../utils/axios";
+import useVisiblePolling from "../../utils/useVisiblePolling";
+
+const ADMIN_DASHBOARD_REFRESH_MS = 15_000;
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
+  const loadAdminDashboard = async () => {
+    try {
+      const res = await api.get("/admin/dashboard");
+      setStats(res.data);
+    } catch (err) {
+      console.error("Admin dashboard error:", err.response?.data || err.message);
+    }
+  };
 
-  useEffect(() => {
-    console.log("AdminDashboard mounted");
-
-    api
-      .get("/admin/dashboard")
-      .then((res) => {
-        // ✅ THIS IS WHERE THE LOG GOES
-        console.log("ADMIN DASHBOARD DATA:", res.data);
-
-        setStats(res.data);
-      })
-      .catch((err) => {
-        console.error(
-          "Admin dashboard error:",
-          err.response?.data || err.message
-        );
-      });
-  }, []);
+  useVisiblePolling(loadAdminDashboard, ADMIN_DASHBOARD_REFRESH_MS);
 
   if (!stats) return <p>Loading admin dashboard...</p>;
 

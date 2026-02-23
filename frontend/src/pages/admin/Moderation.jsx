@@ -4,13 +4,15 @@ import api from "../../utils/axios";
 export default function Moderation() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const fetchMaterials = async () => {
     try {
+      setError("");
       const res = await api.get("/admin/materials");
       setMaterials(res.data);
-    } catch {
-      alert("Failed to load materials");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load materials");
     } finally {
       setLoading(false);
     }
@@ -36,6 +38,7 @@ export default function Moderation() {
   return (
     <div>
       <h1 className="text-xl font-bold mb-4">Content Moderation</h1>
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
       <table className="w-full bg-white border-collapse text-sm">
         <thead className="bg-gray-100 border-b">

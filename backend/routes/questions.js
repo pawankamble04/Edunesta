@@ -1,6 +1,12 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
-import { permit } from "../middleware/roles.js";
+import authorize from "../middleware/roles.js";
+import { validate } from "../middleware/validate.js";
+import {
+  addQuestionSchema,
+  objectIdParamSchema,
+  updateQuestionSchema,
+} from "../validation/schemas.js";
 
 import {
   addQuestion,
@@ -11,16 +17,48 @@ import {
 
 const router = express.Router();
 
-// Teacher adds question
-router.post("/:testId", protect, permit("teacher"), addQuestion);
+/* ===============================
+   QUESTIONS BY TEST
+=============================== */
 
-// Teacher / Student fetch questions
-router.get("/:testId", protect, getQuestionsByTest);
+// Teacher adds question to a test
+router.post(
+  "/test/:testId",
+  protect,
+  authorize("teacher"),
+  validate(addQuestionSchema),
+  addQuestion
+);
 
-// ✅ UPDATE question (Teacher only)
-router.put("/:id", protect, permit("teacher"), updateQuestion);
+// Teacher / Student fetch questions of a test
+router.get(
+  "/test/:testId",
+  protect,
+  authorize("teacher", "student", "admin"),
+  validate(objectIdParamSchema("testId")),
+  getQuestionsByTest
+);
 
-// ✅ DELETE question (Teacher only)
-router.delete("/:id", protect, permit("teacher"), deleteQuestion);
+/* ===============================
+   SINGLE QUESTION OPS
+=============================== */
+
+// Teacher updates a question
+router.put(
+  "/:id",
+  protect,
+  authorize("teacher"),
+  validate(updateQuestionSchema),
+  updateQuestion
+);
+
+// Teacher deletes a question
+router.delete(
+  "/:id",
+  protect,
+  authorize("teacher"),
+  validate(objectIdParamSchema("id")),
+  deleteQuestion
+);
 
 export default router;

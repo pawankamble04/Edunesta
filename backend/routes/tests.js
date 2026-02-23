@@ -1,31 +1,57 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
-import { permit } from "../middleware/roles.js";
-import { togglePublishTest } from "../controllers/testController.js";
-
+import authorize from "../middleware/roles.js";
+import { validate } from "../middleware/validate.js";
+import {
+  createTestSchema,
+  objectIdParamSchema,
+} from "../validation/schemas.js";
 
 import {
   createTest,
   getTest,
-  publishTest,
   listTests,
+  togglePublishTest,
 } from "../controllers/testController.js";
 
 const router = express.Router();
 
-router.post("/", protect, permit("teacher", "admin"), createTest);
-router.get("/", protect, listTests);
-router.get("/:id", protect, getTest); // KEEP LAST
+// ===============================
+// Create Test (Teacher / Admin)
+// ===============================
+router.post(
+  "/",
+  protect,
+  authorize("teacher", "admin"),
+  validate(createTestSchema),
+  createTest
+);
 
 // ===============================
-// Teacher publish / unpublish test
+// List Tests (Role-aware in controller)
+// ===============================
+router.get("/", protect, authorize("teacher", "student", "admin"), listTests);
+
+// ===============================
+// Get Single Test
+// ===============================
+router.get(
+  "/:id",
+  protect,
+  authorize("teacher", "student", "admin"),
+  validate(objectIdParamSchema("id")),
+  getTest
+);
+
+// ===============================
+// Publish / Unpublish (Teacher only)
 // ===============================
 router.put(
   "/:id/publish",
   protect,
-  permit("teacher"),
+  authorize("teacher", "admin"),
+  validate(objectIdParamSchema("id")),
   togglePublishTest
 );
-
 
 export default router;

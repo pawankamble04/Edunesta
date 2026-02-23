@@ -11,7 +11,7 @@ export default function Results() {
   /* ---------------- LOAD RESULTS ---------------- */
   useEffect(() => {
     API.get("/submissions/my")
-      .then((res) => setResults(res.data))
+      .then((res) => setResults(res.data || []))
       .catch((err) =>
         console.error("Error fetching results:", err)
       );
@@ -27,7 +27,7 @@ export default function Results() {
       const user = getUser();
 
       const res = await API.post("/ai/weak-topic-summary", {
-        studentId: user.id,
+        studentId: user?.id, // safer
       });
 
       setAiSummary(res.data.summary || res.data);
@@ -104,14 +104,20 @@ export default function Results() {
           )}
 
           {results.map((r) => (
-            <tr key={r._id} className="border-t">
-              <td className="p-2">{r.test.title}</td>
-              <td>{r.test.durationMinutes} mins</td>
-              <td className="font-semibold">{r.score}</td>
+            <tr key={r.submissionId || r._id} className="border-t">
+              <td className="p-2">
+                {r.testName || r.test?.title || "Test"}
+              </td>
+              <td>{r.duration || "-"}</td>
+              <td className="font-semibold">
+                {typeof r.totalMarks === "number"
+                  ? `${r.score}/${r.totalMarks}`
+                  : r.score}
+              </td>
               <td>
-                {new Date(
-                  r.submittedAt
-                ).toLocaleDateString()}
+                {r.submittedAt || r.date
+                  ? new Date(r.submittedAt || r.date).toLocaleDateString()
+                  : "-"}
               </td>
             </tr>
           ))}

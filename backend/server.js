@@ -3,13 +3,16 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 
-// DB
 import connectDB from "./config/db.js";
+import { startStaleTestAttemptCleanupScheduler } from "./utils/testAttemptCleanup.js";
+import {
+  errorContract,
+  errorHandler,
+  notFoundHandler,
+} from "./middleware/errorContract.js";
 
-// Routes
+import teacherRoutes from "./routes/teacher.js";
 import authRoutes from "./routes/auth.js";
 import testRoutes from "./routes/tests.js";
 import questionRoutes from "./routes/questions.js";
@@ -18,41 +21,76 @@ import materialRoutes from "./routes/materials.js";
 import adminRoutes from "./routes/admin.js";
 import aiRoutes from "./routes/ai.js";
 import testGemini from "./routes/testGemini.js";
-import listModels from "./routes/listModels.js"; // ✅ ADD THIS
+import listModels from "./routes/listModels.js";
+import parentRoutes from "./routes/parents.js";
+import enrollmentRoutes from "./routes/enrollments.js";
+import lectureRoutes from "./routes/lectures.js";
 
-// Fix __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create app
 const app = express();
 const PORT = process.env.PORT || 8080;
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
 
-// =======================
-// CONNECT DATABASE
-// =======================
+const resolveTrustProxySetting = () => {
+  const raw = String(process.env.TRUST_PROXY || "").trim().toLowerCase();
+  if (!raw) return false;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  const asNumber = Number(raw);
+  if (Number.isFinite(asNumber)) return asNumber;
+  return raw;
+};
+
+const isLocalDevOrigin = (origin) => {
+  try {
+    const { hostname } = new URL(origin);
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "[::1]"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  const normalized = origin.replace(/\/+$/, "");
+
+  if (allowedOrigins.length === 0) {
+    return isLocalDevOrigin(normalized);
+  }
+
+  return allowedOrigins.includes(normalized);
+};
+
 connectDB();
+startStaleTestAttemptCleanupScheduler();
+app.set("trust proxy", resolveTrustProxySetting());
 
-// =======================
-// MIDDLEWARES
-// =======================
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// =======================
-// STATIC FILES
-// =======================
 app.use(
-  "/uploads",
-  express.static(
-    path.join(__dirname, process.env.UPLOAD_DIR || "uploads")
-  )
+  cors({
+    origin(origin, cb) {
+      if (isAllowedOrigin(origin)) return cb(null, true);
+      return cb(new Error("CORS blocked"));
+    },
+  })
 );
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  next();
+});
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
+app.use(errorContract);
 
-// =======================
-// API ROUTES
-// =======================
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
 app.use("/api/questions", questionRoutes);
@@ -60,14 +98,19 @@ app.use("/api/submissions", submissionRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/parents", parentRoutes);
+app.use("/api/teacher", teacherRoutes);
+app.use("/api/enrollments", enrollmentRoutes);
+app.use("/api/lectures", lectureRoutes);
 
-// ✅ DEBUG / TEST ROUTES
-app.use("/api", testGemini);
-app.use("/api", listModels); // ✅ THIS FIXES /api/list-models
+if (
+  process.env.NODE_ENV !== "production" &&
+  process.env.ENABLE_DEV_ROUTES === "true"
+) {
+  app.use("/api", testGemini);
+  app.use("/api", listModels);
+}
 
-// =======================
-// HEALTH CHECK
-// =======================
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
@@ -76,13 +119,9 @@ app.get("/", (req, res) => {
   });
 });
 
-// =======================
-// START SERVER
-// =======================
+app.use(notFoundHandler);
+app.use(errorHandler);
+
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(
-    "Gemini Key Loaded:",
-    process.env.GEMINI_API_KEY ? "YES" : "NO"
-  );
+  console.log(`Server running on port ${PORT}`);
 });

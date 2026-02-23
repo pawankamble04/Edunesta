@@ -4,14 +4,22 @@ import api from "../../utils/axios";
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pages, setPages] = useState(1);
+  const [search, setSearch] = useState("");
 
   // 🔹 Fetch all users
   const fetchUsers = async () => {
     try {
-      const res = await api.get("/admin/users");
-      setUsers(res.data);
+      setError("");
+      const res = await api.get("/admin/users", {
+        params: { page, limit: 20, search },
+      });
+      setUsers(res.data?.items || []);
+      setPages(res.data?.pages || 1);
     } catch (err) {
-      alert("Failed to load users");
+      setError("Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -19,7 +27,7 @@ export default function Users() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [page, search]);
 
   // 🔹 Change user role
   const changeRole = async (id, role) => {
@@ -28,8 +36,8 @@ export default function Users() {
     try {
       await api.patch(`/admin/users/${id}/role`, { role });
       fetchUsers();
-    } catch {
-      alert("Role update failed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Role update failed");
     }
   };
 
@@ -40,8 +48,8 @@ export default function Users() {
         isActive: !isActive
       });
       fetchUsers();
-    } catch {
-      alert("Status update failed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Status update failed");
     }
   };
 
@@ -52,8 +60,8 @@ export default function Users() {
     try {
       await api.delete(`/admin/users/${id}`);
       fetchUsers();
-    } catch {
-      alert("Delete failed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Delete failed");
     }
   };
 
@@ -62,6 +70,18 @@ export default function Users() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-6">User Management</h1>
+      {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
+      <div className="mb-3">
+        <input
+          value={search}
+          onChange={(e) => {
+            setPage(1);
+            setSearch(e.target.value);
+          }}
+          placeholder="Search by name or email"
+          className="border p-2 rounded w-full md:w-80"
+        />
+      </div>
 
       <table className="w-full border bg-white text-sm">
         <thead className="bg-gray-100">
@@ -100,6 +120,8 @@ export default function Users() {
                   >
                     <option value="student">Student</option>
                     <option value="teacher">Teacher</option>
+                    <option value="parent">Parent</option>
+                    <option value="admin">Admin</option>
                   </select>
                 )}
 
@@ -125,6 +147,21 @@ export default function Users() {
           ))}
         </tbody>
       </table>
+      {pages > 1 && (
+        <div className="flex gap-2 mt-4">
+          {Array.from({ length: pages }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setPage(i + 1)}
+              className={`px-3 py-1 border rounded ${
+                page === i + 1 ? "bg-blue-600 text-white" : "bg-white"
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

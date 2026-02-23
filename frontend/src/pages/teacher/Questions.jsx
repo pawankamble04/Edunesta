@@ -9,155 +9,182 @@ export default function Questions() {
   const [question, setQuestion] = useState({
     text: "",
     options: ["", "", "", ""],
-    correctAnswers: [],
+    correctAnswer: null,
     marks: 1,
     topic: "",
   });
 
-  const [aiReview, setAiReview] = useState(null);
-  const [loadingAI, setLoadingAI] = useState(false);
-
-  // ✅ STEP 2: store question list
   const [questions, setQuestions] = useState([]);
-
-  // ✅ STEP 3B: edit mode
   const [editingId, setEditingId] = useState(null);
 
-  /* ---------------- OPTIONS ---------------- */
+  const [aiReview, setAiReview] = useState(null);
+  const [loadingAI, setLoadingAI] = useState(false);
+  const [status, setStatus] = useState({
+    type: "",
+    text: "",
+  });
+
+  /* ================= LOAD QUESTIONS ================= */
+  useEffect(() => {
+    if (!testId) return;
+
+    API.get(`/questions/test/${testId}`)
+      .then((res) => setQuestions(res.data))
+      .catch(() =>
+        setStatus({ type: "error", text: "Failed to load questions" })
+      );
+  }, [testId]);
+
+  /* ================= OPTIONS ================= */
   const setOption = (i, value) => {
     const options = [...question.options];
     options[i] = value;
     setQuestion({ ...question, options });
+    setAiReview(null);
   };
 
-  const toggleCorrect = (i) => {
+  const setCorrect = (i) => {
     setQuestion((prev) => ({
       ...prev,
-      correctAnswers: prev.correctAnswers.includes(i)
-        ? prev.correctAnswers.filter((x) => x !== i)
-        : [...prev.correctAnswers, i],
+      correctAnswer: i,
     }));
+    setAiReview(null);
   };
 
-  // ✅ STEP 2: load questions for this test
-  useEffect(() => {
-    if (!testId) return;
-
-    API.get(`/questions/${testId}`)
-      .then((res) => setQuestions(res.data))
-      .catch(() => alert("Failed to load questions"));
-  }, [testId]);
-
-const checkWithAI = async () => {
-  try {
-    setLoadingAI(true);
-    setAiReview(null);
-
-    const res = await API.post("/ai/question-review", {
-      question: question.text,
-      options: question.options,
-      correctAnswer: question.correctAnswers.map(
-        (i) => question.options[i]
-      ),
-      topic: question.topic || "General",
-    });
-
-    let parsed =
-      typeof res.data.review === "string"
-        ? JSON.parse(res.data.review)
-        : res.data.review;
-
-    setAiReview(parsed);
-  } catch (err) {
-    alert("AI review failed or returned invalid format");
-  } finally {
-    setLoadingAI(false);
-  }
-};
-
-  /* ---------------- SAVE QUESTION ---------------- */
-  const saveQuestion = async () => {
-    if (question.correctAnswers.length !== 1) {
-      alert("Select exactly one correct answer");
-      return;
-    }
-
-    if (aiReview && aiReview.clarityScore < 5) {
-      alert(
-        "Question clarity is too low. Please improve the question before saving."
-      );
+  /* ================= AI CHECK ================= */
+  const checkWithAI = async () => {
+    setStatus({ type: "", text: "" });
+    if (question.correctAnswer === null) {
+      setStatus({
+        type: "error",
+        text: "Select correct answer before AI check",
+      });
       return;
     }
 
     try {
-      await (editingId
-        ? API.put(`/questions/${editingId}`, {
-            text: question.text,
-            options: question.options,
-            correctAnswer: question.correctAnswers[0],
-            marks: question.marks,
-            topic: question.topic,
-          })
-        : API.post(`/questions/${testId}`, {
-            text: question.text,
-            options: question.options,
-            correctAnswer: question.correctAnswers[0],
-            marks: question.marks,
-            topic: question.topic,
-          })
-      );
-
-      alert("Question saved successfully");
-
-      setEditingId(null); // ✅ reset edit mode
-
-      setQuestion({
-        text: "",
-        options: ["", "", "", ""],
-        correctAnswers: [],
-        marks: 1,
-        topic: "",
-      });
-
+      setLoadingAI(true);
       setAiReview(null);
 
-      // 🔄 refresh question list
-      const res = await API.get(`/questions/${testId}`);
-      setQuestions(res.data);
+      const res = await API.post("/ai/question-review", {
+        question: question.text,
+        options: question.options,
+        correctAnswer: question.options[question.correctAnswer],
+        topic: question.topic || "General",
+      });
+
+      const parsed =
+        typeof res.data.review === "string"
+          ? JSON.parse(res.data.review)
+          : res.data.review;
+
+      setAiReview(parsed);
     } catch {
-      alert("Error saving question");
+      setStatus({ type: "error", text: "AI review failed" });
+    } finally {
+      setLoadingAI(false);
     }
   };
 
-  // ✅ STEP 2: delete question
+  /* ================= SAVE QUESTION ================= */
+  const saveQuestion = async () => {
+    setStatus({ type: "", text: "" });
+    if (!aiReview || typeof aiReview.clarityScore !== "number") {
+      setStatus({
+        type: "error",
+        text: "Run AI review before saving this question",
+      });
+      return;
+    }
+
+    if (question.correctAnswer === null) {
+      setStatus({
+        type: "error",
+        text: "Select exactly one correct answer",
+      });
+      return;
+    }
+
+    if (aiReview && aiReview.clarityScore < 5) {
+      setStatus({
+        type: "error",
+        text: "Question clarity is too low",
+      });
+      return;
+    }
+
+    try {
+      if (editingId) {
+        await API.put(`/questions/${editingId}`, {
+          text: question.text,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          marks: question.marks,
+          topic: question.topic,
+          aiReview,
+        });
+      } else {
+        await API.post(`/questions/test/${testId}`, {
+          text: question.text,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          marks: question.marks,
+          topic: question.topic,
+          aiReview,
+        });
+      }
+
+      setStatus({
+        type: "success",
+        text: "Question saved successfully.",
+      });
+
+      setEditingId(null);
+      setQuestion({
+        text: "",
+        options: ["", "", "", ""],
+        correctAnswer: null,
+        marks: 1,
+        topic: "",
+      });
+      setAiReview(null);
+
+      const res = await API.get(`/questions/test/${testId}`);
+      setQuestions(res.data);
+    } catch {
+      setStatus({ type: "error", text: "Error saving question" });
+    }
+  };
+
+  /* ================= DELETE ================= */
   const deleteQuestion = async (id) => {
+    setStatus({ type: "", text: "" });
     if (!window.confirm("Delete this question?")) return;
 
     try {
       await API.delete(`/questions/${id}`);
       setQuestions((prev) => prev.filter((q) => q._id !== id));
     } catch {
-      alert("Failed to delete question");
+      setStatus({ type: "error", text: "Failed to delete question" });
     }
   };
 
-  // ✅ STEP 3B: load question into form
+  /* ================= EDIT ================= */
   const editQuestion = (q) => {
     setEditingId(q._id);
     setQuestion({
       text: q.text,
       options: q.options,
-      correctAnswers: [q.correctAnswer],
+      correctAnswer: q.correctAnswer,
       marks: q.marks,
       topic: q.topic || "",
     });
-    setAiReview(null);
+    setAiReview(q.aiReview || null);
   };
 
   return (
     <div className="max-w-2xl">
-
-      {/* ✅ STEP 2: QUESTION LIST */}
+      {/* ================= QUESTION LIST ================= */}
       {questions.length > 0 && (
         <div className="mb-8 bg-white border rounded p-4">
           <h2 className="font-semibold mb-3">
@@ -204,6 +231,17 @@ const checkWithAI = async () => {
       <h1 className="text-xl font-bold mb-6">
         {editingId ? "Edit Question" : "Add Question"}
       </h1>
+      {status.text && (
+        <p
+          className={`mb-4 rounded border px-3 py-2 text-sm ${
+            status.type === "error"
+              ? "border-red-300 bg-red-50 text-red-700"
+              : "border-green-300 bg-green-50 text-green-700"
+          }`}
+        >
+          {status.text}
+        </p>
+      )}
 
       <div className="bg-white border rounded p-6 space-y-4">
         <textarea
@@ -211,18 +249,20 @@ const checkWithAI = async () => {
           className="w-full border p-2 rounded"
           rows="3"
           value={question.text}
-          onChange={(e) =>
-            setQuestion({ ...question, text: e.target.value })
-          }
+          onChange={(e) => {
+            setQuestion({ ...question, text: e.target.value });
+            setAiReview(null);
+          }}
         />
 
         <input
           placeholder="Topic (Arrays, DBMS, OS...)"
           className="w-full border p-2 rounded"
           value={question.topic}
-          onChange={(e) =>
-            setQuestion({ ...question, topic: e.target.value })
-          }
+          onChange={(e) => {
+            setQuestion({ ...question, topic: e.target.value });
+            setAiReview(null);
+          }}
         />
 
         {question.options.map((opt, i) => (
@@ -234,9 +274,10 @@ const checkWithAI = async () => {
               onChange={(e) => setOption(i, e.target.value)}
             />
             <input
-              type="checkbox"
-              checked={question.correctAnswers.includes(i)}
-              onChange={() => toggleCorrect(i)}
+              type="radio"
+              name="correct"
+              checked={question.correctAnswer === i}
+              onChange={() => setCorrect(i)}
             />
           </div>
         ))}
@@ -270,7 +311,7 @@ const checkWithAI = async () => {
 
         <button
           onClick={saveQuestion}
-          disabled={aiReview && aiReview.clarityScore < 5}
+          disabled={!aiReview || aiReview.clarityScore < 5}
           className="bg-green-600 text-white px-4 py-2 rounded"
         >
           {editingId ? "Update Question" : "Save Question"}

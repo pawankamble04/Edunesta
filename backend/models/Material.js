@@ -5,19 +5,30 @@ const materialSchema = new mongoose.Schema(
     title: {
       type: String,
       required: true,
+      trim: true,
     },
 
-    description: String,
+    description: {
+      type: String,
+      trim: true,
+    },
 
     fileUrl: {
       type: String,
       required: true,
+      validate: {
+        validator: function (v) {
+          return v.startsWith("/uploads/materials/");
+        },
+        message: "Invalid file path",
+      },
     },
 
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
 
     visibleTo: {
@@ -26,10 +37,10 @@ const materialSchema = new mongoose.Schema(
       default: "students",
     },
 
-    // ✅ REQUIRED FOR ADMIN MODERATION
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   { timestamps: true }

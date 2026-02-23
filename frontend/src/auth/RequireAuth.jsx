@@ -1,11 +1,18 @@
 import { Navigate } from "react-router-dom";
+import { getToken, getUser } from "../utils/storage";
 
 export default function RequireAuth({ role, children }) {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
+  const token = getToken();
+  const user = getUser();
 
-  if (!token || !user) return <Navigate to="/login" />;
-  if (role && user.role !== role) return <Navigate to="/" />;
+  if (!token || !user) {
+    return <Navigate to="/login" />;
+  }
+
+  // 🔒 FIX: Case-insensitive role comparison
+  if (role && user.role?.toLowerCase() !== role?.toLowerCase()) {
+    return <Navigate to="/" />;
+  }
 
   return children;
 }
