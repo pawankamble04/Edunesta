@@ -16,6 +16,7 @@ import PublicLayout from "./layouts/PublicLayout";
 import Home from "./pages/common/Home";
 import Login from "./pages/common/Login";
 import Register from "./pages/common/Register";
+import SessionSecurity from "./pages/common/SessionSecurity";
 
 /* Admin Pages */
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -56,10 +57,21 @@ export default function App() {
   useEffect(() => {
     const syncAuth = async () => {
       try {
-        const token = getToken();
+        let token = getToken();
         if (!token) {
-          clearAuth();
-          return;
+          const refreshRes = await api.post(
+            "/auth/refresh",
+            {},
+            { withCredentials: true }
+          );
+          token = String(refreshRes.data?.token || "").trim();
+          if (!token) {
+            clearAuth();
+            return;
+          }
+          if (refreshRes.data?.user) {
+            setAuth({ token, user: refreshRes.data.user });
+          }
         }
 
         const res = await api.get("/auth/me", { withCredentials: true });
@@ -85,6 +97,15 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
         </Route>
+
+        <Route
+          path="/account/sessions"
+          element={
+            <RequireAuth>
+              <SessionSecurity />
+            </RequireAuth>
+          }
+        />
 
         {/* ADMIN */}
         <Route

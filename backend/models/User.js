@@ -68,6 +68,31 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    /* =========================
+       Auth Security
+    ========================== */
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    loginLockUntil: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+
+    lastFailedLoginAt: {
+      type: Date,
+      default: null,
+    },
+
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

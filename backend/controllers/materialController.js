@@ -5,6 +5,12 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import {
+  createSecurePdfFilename,
+  hasPdfExtension,
+  isPdfMimeType,
+  isPdfSignatureValid,
+} from "../utils/pdfSecurity.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,15 +18,10 @@ const __dirname = path.dirname(__filename);
 const uploadDir = path.join(__dirname, "..", "uploads", "materials");
 fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (_, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype !== "application/pdf") {
+const fileFilter = (_, file, cb) => {
+  const isAllowed =
+    isPdfMimeType(file?.mimetype) && hasPdfExtension(file?.originalname);
+  if (!isAllowed) {
     cb(new Error("Only PDF files are allowed"), false);
   } else {
     cb(null, true);
@@ -28,10 +29,17 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
 });
+
+const writeMaterialPdf = async (buffer) => {
+  const filename = createSecurePdfFilename();
+  const filePath = path.join(uploadDir, filename);
+  await fs.promises.writeFile(filePath, buffer, { flag: "wx" });
+  return filename;
+};
 
 /* ===============================
    Upload Material (Teacher Only)
@@ -42,14 +50,20 @@ export const uploadMaterialHandler = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    if (!req.file) {
+    if (!req.file || !Buffer.isBuffer(req.file.buffer)) {
       return res.status(400).json({ message: "File is required" });
     }
+
+    if (!isPdfSignatureValid(req.file.buffer)) {
+      return res.status(400).json({ message: "Invalid PDF file signature" });
+    }
+
+    const storedFilename = await writeMaterialPdf(req.file.buffer);
 
     const material = await Material.create({
       title: req.body.title,
       description: req.body.description,
-      fileUrl: `/uploads/materials/${req.file.filename}`,
+      fileUrl: `/uploads/materials/${storedFilename}`,
       uploadedBy: req.user._id,
       visibleTo: req.body.visibleTo || "students",
       isActive: true,
@@ -126,7 +140,7 @@ export const downloadMaterialFile = async (req, res) => {
 };
 
 /* ===============================
-   Student → View Materials
+   Student -> View Materials
 ================================ */
 export const listStudentMaterials = async (req, res) => {
   try {
@@ -158,7 +172,7 @@ export const listStudentMaterials = async (req, res) => {
 };
 
 /* ===============================
-   Teacher → View Own Materials
+   Teacher -> View Own Materials
 ================================ */
 export const listTeacherMaterials = async (req, res) => {
   try {

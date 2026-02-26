@@ -29,10 +29,12 @@ const getCookieConfig = () => {
 };
 
 const getRequestPath = (req) => String(req.originalUrl || req.url || "").split("?")[0];
+const hasAuthCookie = (req) =>
+  Boolean(req.cookies?.token || req.cookies?.refreshToken);
 
 export const ensureCsrfCookie = (req, res, next) => {
   if (!CSRF_ENABLED) return next();
-  if (!req.cookies?.token) return next();
+  if (!hasAuthCookie(req)) return next();
 
   if (!req.cookies[CSRF_COOKIE_NAME]) {
     const { sameSite, secure } = getCookieConfig();
@@ -55,7 +57,7 @@ export const csrfProtection = (req, res, next) => {
   const path = getRequestPath(req);
   if (CSRF_EXEMPT_PATHS.has(path)) return next();
 
-  if (!req.cookies?.token) return next();
+  if (!hasAuthCookie(req)) return next();
 
   const cookieToken = req.cookies[CSRF_COOKIE_NAME];
   const headerToken = req.headers[CSRF_HEADER_NAME];

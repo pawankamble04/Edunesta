@@ -1,5 +1,9 @@
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/User.js";
+import AuthSession from "../models/AuthSession.js";
+
+const SESSION_TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
 const getTokenFromRequest = (req) => {
   const authHeader = String(req.headers.authorization || "");
@@ -27,6 +31,22 @@ const getTokenFromRequest = (req) => {
   };
 };
 
+const touchSessionUsage = async (session) => {
+  if (!session?._id) return;
+
+  const lastUsed = session.lastUsedAt ? new Date(session.lastUsedAt).getTime() : 0;
+  if (Date.now() - lastUsed < SESSION_TOUCH_INTERVAL_MS) return;
+
+  try {
+    await AuthSession.updateOne(
+      { _id: session._id },
+      { $set: { lastUsedAt: new Date() } }
+    );
+  } catch {
+    // Non-blocking best effort update.
+  }
+};
+
 const auth = async (req, res, next) => {
   try {
     if (!process.env.JWT_SECRET) {
@@ -49,6 +69,29 @@ const auth = async (req, res, next) => {
       });
     }
 
+    let session = null;
+    const sessionId = String(decoded.sid || "").trim();
+    if (sessionId) {
+      if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+        return res.status(401).json({
+          message: "Not authorized, session invalid",
+        });
+      }
+
+      session = await AuthSession.findOne({
+        _id: sessionId,
+        user: decoded._id,
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      }).select("_id lastUsedAt");
+
+      if (!session) {
+        return res.status(401).json({
+          message: "Not authorized, session expired",
+        });
+      }
+    }
+
     const user = await User.findById(decoded._id).select(
       "name email role isActive"
     );
@@ -67,7 +110,9 @@ const auth = async (req, res, next) => {
       email: user.email,
     };
     req.authSource = source;
+    req.authSessionId = session?._id || null;
 
+    void touchSessionUsage(session);
     return next();
   } catch {
     return res.status(401).json({

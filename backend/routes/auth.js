@@ -4,6 +4,10 @@ import {
   login,
   googleAuth,
   generateStudentLinkCode,
+  refreshAccessToken,
+  listAuthSessions,
+  revokeAuthSession,
+  logoutAllSessions,
   getMe,
   logout,
 } from "../controllers/authController.js";
@@ -14,6 +18,7 @@ import { validate } from "../middleware/validate.js";
 import {
   googleAuthSchema,
   loginSchema,
+  objectIdParamSchema,
   registerSchema,
 } from "../validation/schemas.js";
 
@@ -35,7 +40,16 @@ const loginLimiter = createRateLimiter({
 router.post("/register", authLimiter, validate(registerSchema), register);
 router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/google", authLimiter, validate(googleAuthSchema), googleAuth);
+router.post("/refresh", authLimiter, refreshAccessToken);
 router.post("/logout", logout);
+router.post("/logout-all", protect, logoutAllSessions);
+router.get("/sessions", protect, listAuthSessions);
+router.delete(
+  "/sessions/:id",
+  protect,
+  validate(objectIdParamSchema("id")),
+  revokeAuthSession
+);
 
 // ================= GET CURRENT USER =================
 router.get("/me", protect, getMe);

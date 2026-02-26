@@ -72,6 +72,13 @@ export default function Navbar() {
             </span>
 
             <button
+              onClick={() => navigate("/account/sessions")}
+              className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 transition"
+            >
+              Sessions
+            </button>
+
+            <button
               onClick={handleLogout}
               className="px-3 py-1 rounded bg-red-500 hover:bg-red-600 transition"
             >

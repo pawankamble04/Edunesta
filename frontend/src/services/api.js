@@ -1,5 +1,5 @@
 import axios from "axios";
-import { clearAuth, getToken } from "../utils/storage";
+import { clearAuth, getToken, getUser, setAuth } from "../utils/storage";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
@@ -15,6 +15,16 @@ const API = axios.create({
   },
   withCredentials: true,
 });
+
+const refreshClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  withCredentials: true,
+});
+
+let refreshPromise = null;
 
 const getCookieValue = (name) => {
   if (typeof document === "undefined") return "";
@@ -37,6 +47,51 @@ const createQueuedRequestError = (response) => {
   error.isQueuedRequest = true;
   error.response = response;
   return error;
+};
+
+const isAuthEndpoint = (url) => {
+  const route = String(url || "");
+  return [
+    "/auth/login",
+    "/auth/register",
+    "/auth/google",
+    "/auth/logout",
+    "/auth/refresh",
+  ].some((entry) => route.includes(entry));
+};
+
+const redirectToLogin = () => {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+};
+
+const getCsrfHeaders = () => {
+  const csrfToken = getCookieValue(CSRF_COOKIE_NAME);
+  if (!csrfToken) return {};
+  return { [CSRF_HEADER_NAME]: csrfToken };
+};
+
+const performTokenRefresh = async () => {
+  const headers = getCsrfHeaders();
+  const res = await refreshClient.post("/auth/refresh", {}, { headers });
+
+  const refreshedToken = String(res.data?.token || "").trim();
+  const refreshedUser = res.data?.user && typeof res.data.user === "object"
+    ? res.data.user
+    : getUser();
+
+  if (!refreshedToken) {
+    throw new Error("Refresh token response missing access token");
+  }
+
+  setAuth({
+    token: refreshedToken,
+    user: refreshedUser,
+  });
+
+  return refreshedToken;
 };
 
 API.interceptors.request.use((req) => {
@@ -62,11 +117,50 @@ API.interceptors.response.use(
     }
     return res;
   },
-  (err) => {
-    if (err.response?.status === 401) {
+  async (err) => {
+    const status = Number(err?.response?.status || 0);
+    const originalRequest = err?.config || {};
+    const requestUrl = String(originalRequest.url || "");
+
+    if (status === 401) {
+      const isRefreshRequest = requestUrl.includes("/auth/refresh");
+      if (isRefreshRequest) {
+        clearAuth();
+        redirectToLogin();
+        return Promise.reject(err);
+      }
+
+      if (isAuthEndpoint(requestUrl)) {
+        return Promise.reject(err);
+      }
+
+      if (!originalRequest._retry) {
+        originalRequest._retry = true;
+
+        try {
+          if (!refreshPromise) {
+            refreshPromise = performTokenRefresh().finally(() => {
+              refreshPromise = null;
+            });
+          }
+
+          const refreshedToken = await refreshPromise;
+          originalRequest.headers = {
+            ...(originalRequest.headers || {}),
+            Authorization: `Bearer ${refreshedToken}`,
+          };
+          return API(originalRequest);
+        } catch (refreshErr) {
+          clearAuth();
+          redirectToLogin();
+          return Promise.reject(refreshErr);
+        }
+      }
+
       clearAuth();
-      window.location.href = "/login";
+      redirectToLogin();
     }
+
     return Promise.reject(err);
   }
 );

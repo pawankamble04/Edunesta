@@ -10,6 +10,7 @@ import Test from "../models/Test.js";
 import Enrollment from "../models/Enrollment.js";
 import { normalizeSubject } from "../utils/subject.js";
 import { getStudentDailySummary } from "../utils/dailySummary.js";
+import { isPdfSignatureValid } from "../utils/pdfSecurity.js";
 
 const getWeekRange = () => {
   const now = new Date();
@@ -1715,6 +1716,12 @@ export const generateMcqFromPdf = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid PDF upload",
+      });
+    }
+    if (!isPdfSignatureValid(paragraph)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid PDF file signature",
       });
     }
 

@@ -3,6 +3,7 @@ dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
@@ -91,6 +92,12 @@ app.use(
   })
 );
 app.use(cookieParser());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");

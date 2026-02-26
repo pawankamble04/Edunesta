@@ -23,6 +23,7 @@ import {
 import { protect } from "../middleware/auth.js";
 import authorize from "../middleware/roles.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
+import { hasPdfExtension, isPdfMimeType } from "../utils/pdfSecurity.js";
 
 const router = express.Router();
 const aiLimiter = createRateLimiter({
@@ -35,7 +36,7 @@ const aiPdfUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (_, file, cb) => {
     const isPdf =
-      String(file?.mimetype || "").trim().toLowerCase() === "application/pdf";
+      isPdfMimeType(file?.mimetype) && hasPdfExtension(file?.originalname);
     if (isPdf) return cb(null, true);
 
     const err = new Error("Only PDF files are allowed");
