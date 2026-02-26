@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logo from "../assets/logo.png"; 
 import { clearAuth, getToken, getUser } from "../utils/storage";
+import API from "../services/api";
 
 export default function Navbar() {
   const [user, setUser] = useState(null);
@@ -34,10 +35,21 @@ export default function Navbar() {
     return () => window.removeEventListener("storage", loadAuth);
   }, []);
 
-  const handleLogout = () => {
-    clearAuth();
-    window.dispatchEvent(new Event("storage"));
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await API.post("/auth/logout");
+    } catch {
+      // Continue with local logout even if server logout request fails.
+    } finally {
+      clearAuth();
+      if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: "EDUNESTA_CLEAR_QUEUE",
+        });
+      }
+      window.dispatchEvent(new Event("storage"));
+      navigate("/login");
+    }
   };
 
   return (

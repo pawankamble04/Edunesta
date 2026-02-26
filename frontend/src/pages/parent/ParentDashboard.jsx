@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import API from "../../services/api";
 import useVisiblePolling from "../../utils/useVisiblePolling";
 import { getUser } from "../../utils/storage";
+import RoleStudyBuddyChat from "../../components/ai/RoleStudyBuddyChat";
 
 const PARENT_DASHBOARD_REFRESH_MS = 15_000;
 
@@ -187,6 +188,10 @@ export default function ParentDashboard() {
             {message}
           </p>
         )}
+      </div>
+
+      <div className="mb-8">
+        <RoleStudyBuddyChat role="parent" linkedChildren={children} />
       </div>
 
       {/* ================= LINKED CHILDREN ================= */}

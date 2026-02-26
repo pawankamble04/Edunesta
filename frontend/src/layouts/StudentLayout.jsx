@@ -16,21 +16,14 @@ export default function StudentLayout() {
         <nav className="flex flex-col gap-2 text-sm font-medium">
 
           <NavItem to="/student" label="Dashboard" />
+          <NavItem to="/student/ai-roadmaps" label="AI Roadmaps" />
+          <NavItem to="/student/exam-auto-prep" label="JEE/NEET Prep" />
+          <NavItem to="/student/pyq-practice" label="PYQ Practice" />
           <NavItem to="/student/tests" label="Tests" />
           <NavItem to="/student/results" label="Results" />
           <NavItem to="/student/materials" label="Materials" />
           <NavItem to="/student/lectures" label="Lectures" />
           <NavItem to="/student/connect" label="Connect Teacher" />
-
-          {/* Attendance - Coming Soon */}
-          <div className="mt-4 border-t border-slate-700 pt-4">
-            <p className="text-xs uppercase text-slate-400 mb-2">
-              Upcoming
-            </p>
-            <div className="text-slate-400 text-sm cursor-not-allowed opacity-70">
-              Attendance (Coming Soon)
-            </div>
-          </div>
 
         </nav>
 

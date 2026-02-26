@@ -1,6 +1,11 @@
 import express from "express";
 import {
   getStudentAnalytics,
+  getStudentTopicMastery,
+  generateStudentMicroRetest,
+  submitStudentMicroRetest,
+  generateStudentPyqPractice,
+  submitStudentPyqPractice,
   getParentAnalytics,
   getTeacherAnalytics,
 } from "../controllers/analyticsController.js";
@@ -24,6 +29,66 @@ router.get(
     next();
   },
   getStudentAnalytics
+);
+
+router.get(
+  "/student/topic-mastery",
+  protect,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  },
+  getStudentTopicMastery
+);
+
+router.post(
+  "/student/micro-retest",
+  protect,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  },
+  generateStudentMicroRetest
+);
+
+router.post(
+  "/student/micro-retest/submit",
+  protect,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  },
+  submitStudentMicroRetest
+);
+
+router.post(
+  "/student/pyq-practice",
+  protect,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  },
+  generateStudentPyqPractice
+);
+
+router.post(
+  "/student/pyq-practice/submit",
+  protect,
+  (req, res, next) => {
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    next();
+  },
+  submitStudentPyqPractice
 );
 
 /**

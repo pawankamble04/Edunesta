@@ -23,14 +23,22 @@ export default function Moderation() {
   }, []);
 
   const toggleStatus = async (id) => {
-    await api.patch(`/admin/materials/${id}/status`);
-    fetchMaterials();
+    try {
+      await api.patch(`/admin/materials/${id}/status`);
+      fetchMaterials();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update material status");
+    }
   };
 
   const deleteMaterial = async (id) => {
     if (!window.confirm("Delete this material?")) return;
-    await api.delete(`/admin/materials/${id}`);
-    fetchMaterials();
+    try {
+      await api.delete(`/admin/materials/${id}`);
+      fetchMaterials();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to delete material");
+    }
   };
 
   if (loading) return <p>Loading materials...</p>;

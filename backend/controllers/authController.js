@@ -1,4 +1,4 @@
-import crypto from "crypto";
+﻿import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
@@ -8,6 +8,10 @@ import { generateUniqueTeacherJoinCode } from "../utils/teacherJoinCode.js";
 const googleClient = new OAuth2Client();
 const selfRegisterRoles = new Set(["student", "teacher", "parent"]);
 const googleAutoRegisterRole = "student";
+const CSRF_COOKIE_NAME = process.env.CSRF_COOKIE_NAME || "XSRF-TOKEN";
+const AUTH_COOKIE_NAME = "token";
+const JWT_EXPIRES_IN = process.env.JWT_EXP || "7d";
+const DEFAULT_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 const ensureJwtSecret = (res) => {
   if (!process.env.JWT_SECRET) {
@@ -24,7 +28,7 @@ const createAuthToken = (user) =>
       role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXP || "7d" }
+    { expiresIn: JWT_EXPIRES_IN }
   );
 
 const mapAuthUser = (user) => ({
@@ -40,10 +44,96 @@ const hashPassword = async (value) => {
   return bcrypt.hash(value, salt);
 };
 
+const parseJwtExpiryToMs = (value) => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return null;
+
+  if (/^\d+$/.test(raw)) {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return seconds * 1000;
+    }
+    return null;
+  }
+
+  const match = raw.match(/^(\d+)\s*([smhdw])$/);
+  if (!match) return null;
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(amount) || amount < 1) return null;
+
+  const unitMs = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+  };
+
+  return amount * unitMs[unit];
+};
+
+const getCookieConfig = () => {
+  const rawSameSite = String(process.env.COOKIE_SAME_SITE || "lax").toLowerCase();
+  const sameSite = ["lax", "strict", "none"].includes(rawSameSite)
+    ? rawSameSite
+    : "lax";
+  let secure = String(
+    process.env.COOKIE_SECURE || (process.env.NODE_ENV === "production")
+  ).toLowerCase() === "true";
+  if (sameSite === "none") {
+    secure = true;
+  }
+  const maxAge = parseJwtExpiryToMs(JWT_EXPIRES_IN) || DEFAULT_COOKIE_MAX_AGE_MS;
+  const path = "/";
+  return { sameSite, secure, maxAge, path };
+};
+
+const setAuthCookies = (res, token) => {
+  const { sameSite, secure, maxAge, path } = getCookieConfig();
+
+  res.cookie(AUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure,
+    sameSite,
+    maxAge,
+    path,
+  });
+
+  const csrfToken = crypto.randomBytes(24).toString("hex");
+  res.cookie(CSRF_COOKIE_NAME, csrfToken, {
+    httpOnly: false,
+    secure,
+    sameSite,
+    maxAge,
+    path,
+  });
+};
+
+const clearAuthCookies = (res) => {
+  const { sameSite, secure, path } = getCookieConfig();
+
+  res.clearCookie(AUTH_COOKIE_NAME, {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path,
+  });
+
+  res.clearCookie(CSRF_COOKIE_NAME, {
+    httpOnly: false,
+    secure,
+    sameSite,
+    path,
+  });
+};
+
 /* ================= REGISTER ================= */
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = String(req.body.email || "").trim().toLowerCase();
     const requestedRole = String(req.body.role || "student").toLowerCase();
 
     if (!ensureJwtSecret(res)) return;
@@ -56,15 +146,14 @@ export const register = async (req, res) => {
       return res.status(400).json({ msg: "Invalid role selected" });
     }
 
-    let user = await User.findOne({ email });
-    if (user) {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ msg: "User already exists" });
     }
 
     const hashed = await hashPassword(password);
 
     let teacherJoinCode;
-
     if (requestedRole === "teacher") {
       teacherJoinCode = await generateUniqueTeacherJoinCode();
     }
@@ -77,21 +166,18 @@ export const register = async (req, res) => {
       ...(teacherJoinCode ? { teacherJoinCode } : {}),
     });
 
-    await user.save();
-
     const token = createAuthToken(user);
+    setAuthCookies(res, token);
 
     res.json({
       token,
       user: mapAuthUser(user),
     });
   } catch (err) {
-    if (err?.code === 11000) {
-      if (err?.keyPattern?.teacherJoinCode) {
-        return res.status(400).json({
-          msg: "Registration failed. Please try again.",
-        });
-      }
+    if (err?.code === 11000 && err?.keyPattern?.teacherJoinCode) {
+      return res.status(400).json({
+        msg: "Registration failed. Please try again.",
+      });
     }
 
     console.error(err);
@@ -102,7 +188,8 @@ export const register = async (req, res) => {
 /* ================= LOGIN ================= */
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const password = req.body.password;
+    const email = String(req.body.email || "").trim().toLowerCase();
 
     if (!ensureJwtSecret(res)) return;
 
@@ -110,7 +197,6 @@ export const login = async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    // 🔐 Explicitly select password because schema hides it
     const user = await User.findOne({ email }).select("+password");
     if (!user) {
       return res.status(400).json({ msg: "Invalid credentials" });
@@ -126,14 +212,7 @@ export const login = async (req, res) => {
     }
 
     const token = createAuthToken(user);
-
-    // ✅ SEND TOKEN AS COOKIE
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setAuthCookies(res, token);
 
     res.json({
       token,
@@ -213,6 +292,7 @@ export const googleAuth = async (req, res) => {
     }
 
     const token = createAuthToken(user);
+    setAuthCookies(res, token);
 
     return res.json({
       token,
@@ -280,4 +360,10 @@ export const getMe = async (req, res) => {
       message: "Server error",
     });
   }
+};
+
+/* ================= LOGOUT ================= */
+export const logout = async (req, res) => {
+  clearAuthCookies(res);
+  return res.json({ message: "Logged out" });
 };

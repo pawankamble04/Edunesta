@@ -1,11 +1,13 @@
-import dotenv from "dotenv";
+﻿import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
 import { startStaleTestAttemptCleanupScheduler } from "./utils/testAttemptCleanup.js";
+import { csrfProtection, ensureCsrfCookie } from "./middleware/csrf.js";
 import {
   errorContract,
   errorHandler,
@@ -24,12 +26,15 @@ import parentRoutes from "./routes/parents.js";
 import analyticsRoutes from "./routes/analytics.js";
 import testGemini from "./routes/testGemini.js";
 import listModels from "./routes/listModels.js";
-import parentRoutes from "./routes/parents.js";
 import enrollmentRoutes from "./routes/enrollments.js";
 import lectureRoutes from "./routes/lectures.js";
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const csrfHeaderName = process.env.CSRF_HEADER_NAME || "X-CSRF-Token";
+const corsAllowedHeaders = Array.from(
+  new Set(["Content-Type", "Authorization", csrfHeaderName].filter(Boolean))
+);
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((s) => s.trim().replace(/\/+$/, ""))
@@ -76,12 +81,17 @@ app.set("trust proxy", resolveTrustProxySetting());
 
 app.use(
   cors({
+    credentials: true,
+    allowedHeaders: corsAllowedHeaders,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     origin(origin, cb) {
       if (isAllowedOrigin(origin)) return cb(null, true);
       return cb(new Error("CORS blocked"));
     },
   })
 );
+app.use(cookieParser());
+
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -89,9 +99,12 @@ app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   next();
 });
+
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(errorContract);
+app.use(ensureCsrfCookie);
+app.use(csrfProtection);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/tests", testRoutes);
@@ -101,6 +114,7 @@ app.use("/api/materials", materialRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/parents", parentRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/lectures", lectureRoutes);

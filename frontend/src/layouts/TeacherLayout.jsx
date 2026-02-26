@@ -10,6 +10,8 @@ export default function TeacherLayout() {
           <Link to="/teacher">Dashboard</Link>
           <Link to="/teacher/tests">Tests</Link>
           <Link to="/teacher/create-test">Create Test</Link>
+          <Link to="/teacher/ai-test">AI Test</Link>
+          <Link to="/teacher/exam-prep">JEE/NEET Prep</Link>
           <Link to="/teacher/materials">Materials</Link>
           <Link to="/teacher/lectures">Lectures</Link>
           <Link to="/teacher/questions">Questions</Link>

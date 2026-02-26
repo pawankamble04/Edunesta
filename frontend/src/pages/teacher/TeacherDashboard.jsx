@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import API from "../../services/api";
 import useVisiblePolling from "../../utils/useVisiblePolling";
+import RoleStudyBuddyChat from "../../components/ai/RoleStudyBuddyChat";
 
 const TEACHER_DASHBOARD_REFRESH_MS = 15_000;
 
@@ -298,6 +299,10 @@ export default function TeacherDashboard() {
             </div>
           </>
         )}
+      </div>
+
+      <div className="mb-8">
+        <RoleStudyBuddyChat role="teacher" />
       </div>
 
       {/* Stats */}

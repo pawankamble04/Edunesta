@@ -42,7 +42,7 @@ export default function CreateTest() {
     setError("");
 
     try {
-      await API.post("/tests", {
+      const res = await API.post("/tests", {
         title,
         description,
         subject: subject.toLowerCase(),
@@ -50,7 +50,12 @@ export default function CreateTest() {
         totalMarks: Number(totalMarks),
       });
 
-      navigate("/teacher/tests");
+      const newTestId = String(res.data?._id || "");
+      if (newTestId) {
+        navigate(`/teacher/questions?testId=${newTestId}`);
+      } else {
+        navigate("/teacher/tests");
+      }
     } catch (err) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to create test");

@@ -7,10 +7,19 @@
 4. Start MongoDB (local or Atlas URI)
 5. `npm run dev` (or `npm start`)
 
+## Unique Feature (USP)
+- `Auto Attendance + Parent Daily Alert + AI Study Coach`
+- Opening a lecture can auto-mark attendance, combine it with test performance in daily status, notify parents, and generate AI next-step guidance.
+
+## Other Key Features
+- `AI Quality Gate for Test Publishing`: Tests can be published only when question AI review is valid and clarity score meets the minimum threshold.
+- `Secure Parent Linking`: Students generate a 6-digit expiring code (10 minutes) that parents use to link accounts.
+
 ## Core Auth
 - `POST /api/auth/register` `{name,email,password,role}`
 - `POST /api/auth/login` `{email,password}`
 - `POST /api/auth/google` `{credential}`
+- `POST /api/auth/logout`
 - `GET /api/auth/me`
 
 ## Test and Question Flow
@@ -62,11 +71,17 @@
 ## Required Environment Variables
 - `PORT` (default `8080`)
 - `MONGO_URI`
+- `MONGO_DB_NAME` (optional override; otherwise uses DB from `MONGO_URI`)
 - `JWT_SECRET`
 - `JWT_EXP` (default `7d`)
 - `CORS_ORIGIN` (comma-separated origins)
 - `GOOGLE_CLIENT_ID`
 - `GEMINI_API_KEY` (required for AI endpoints)
+- `COOKIE_SAME_SITE` (default `lax`)
+- `COOKIE_SECURE` (default `true` in production)
+- `CSRF_ENABLED` (default `true`)
+- `CSRF_COOKIE_NAME` (default `XSRF-TOKEN`)
+- `CSRF_HEADER_NAME` (default `X-CSRF-Token`)
 
 ## Test Attempt Cleanup (stale timer sessions)
 - `TEST_ATTEMPT_AUTO_CLEAN_ENABLED`:
@@ -85,3 +100,6 @@ The cleanup job logs every startup/interval run with deleted counts.
 - `GET /api/parents/ai-summary/:studentId`
 - `GET /api/parents/notifications/daily` (daily student summary for linked children)
 - `POST /api/parents/link`
+
+
+

@@ -31,6 +31,15 @@ const aiReviewSchema = z
   })
   .strict();
 
+const pyqMetaSchema = z
+  .object({
+    isPyq: z.boolean().optional(),
+    pyqExamType: z.enum(["", "JEE", "NEET"]).optional(),
+    pyqYear: z.coerce.number().int().min(1990).max(2100).nullable().optional(),
+    pyqSource: z.string().trim().max(120).optional(),
+  })
+  .strict();
+
 export const registerSchema = z.object({
   body: z
     .object({
@@ -90,6 +99,7 @@ export const addQuestionSchema = z.object({
       marks: z.coerce.number().int().min(1).max(100).optional(),
       topic: z.string().trim().min(1).max(120).optional(),
       aiReview: aiReviewSchema.optional(),
+      ...pyqMetaSchema.shape,
     })
     .strict()
     .refine((value) => value.correctAnswer < value.options.length, {
@@ -110,6 +120,7 @@ export const updateQuestionSchema = z.object({
       marks: z.coerce.number().int().min(1).max(100).optional(),
       topic: z.string().trim().min(1).max(120).optional(),
       aiReview: aiReviewSchema.nullable().optional(),
+      ...pyqMetaSchema.shape,
     })
     .strict()
     .refine(

@@ -40,6 +40,26 @@ const isAiReviewPassing = (review) => {
   return Number(review.clarityScore) >= minClarityScore;
 };
 
+const sanitizePyqMeta = (payload = {}) => {
+  const isPyq = Boolean(payload.isPyq);
+  const rawExam = String(payload.pyqExamType || "").trim().toUpperCase();
+  const pyqExamType =
+    isPyq && ["JEE", "NEET"].includes(rawExam) ? rawExam : "";
+  const rawYear = Number(payload.pyqYear);
+  const pyqYear =
+    isPyq && Number.isInteger(rawYear) && rawYear >= 1990 && rawYear <= 2100
+      ? rawYear
+      : null;
+  const pyqSource = isPyq ? String(payload.pyqSource || "").trim().slice(0, 120) : "";
+
+  return {
+    isPyq,
+    pyqExamType,
+    pyqYear,
+    pyqSource,
+  };
+};
+
 export const addQuestion = async (req, res) => {
   try {
     const { testId } = req.params;
@@ -73,6 +93,7 @@ export const addQuestion = async (req, res) => {
         }`,
       });
     }
+    const pyqMeta = sanitizePyqMeta(req.body || {});
 
     const question = await Question.create({
       test: testId,
@@ -81,6 +102,7 @@ export const addQuestion = async (req, res) => {
       correctAnswer,
       marks,
       topic,
+      ...pyqMeta,
       aiReview: cleanAiReview,
     });
 
@@ -174,6 +196,18 @@ export const updateQuestion = async (req, res) => {
 
     if (Object.prototype.hasOwnProperty.call(payload, "aiReview")) {
       payload.aiReview = sanitizeAiReview(payload.aiReview);
+    }
+    const hasPyqField =
+      Object.prototype.hasOwnProperty.call(payload, "isPyq") ||
+      Object.prototype.hasOwnProperty.call(payload, "pyqExamType") ||
+      Object.prototype.hasOwnProperty.call(payload, "pyqYear") ||
+      Object.prototype.hasOwnProperty.call(payload, "pyqSource");
+    if (hasPyqField) {
+      const pyqMeta = sanitizePyqMeta(payload);
+      payload.isPyq = pyqMeta.isPyq;
+      payload.pyqExamType = pyqMeta.pyqExamType;
+      payload.pyqYear = pyqMeta.pyqYear;
+      payload.pyqSource = pyqMeta.pyqSource;
     }
 
     const hasCoreChange =

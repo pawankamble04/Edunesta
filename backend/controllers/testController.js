@@ -427,21 +427,39 @@ export const togglePublishTest = async (req, res) => {
 export const deleteTest = async (req, res) => {
   try {
     const { id } = req.params;
+    const actorId = req.user._id || req.user.id;
+    const actorRole = req.user.role;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid test ID" });
+    }
 
     const test = await Test.findById(id);
     if (!test) {
       return res.status(404).json({ message: "Test not found" });
     }
 
-    // 🔐 Only creator teacher can delete
-    if (String(test.createdBy) !== String(req.user.id)) {
+    // Only creator teacher or admin can delete.
+    if (actorRole !== "admin" && String(test.createdBy) !== String(actorId)) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    // 🧹 Cascade delete
+    // Cascade delete related entities.
     await Question.deleteMany({ test: id });
     await Submission.deleteMany({ test: id });
+    await TestAttempt.deleteMany({ test: id });
     await Test.findByIdAndDelete(id);
+
+    await writeAuditLog({
+      action: "test.deleted",
+      actor: req.user,
+      target: "test",
+      targetId: test._id,
+      meta: {
+        title: test.title,
+        subject: test.subject,
+      },
+    });
 
     res.json({ message: "Test deleted successfully" });
   } catch (err) {

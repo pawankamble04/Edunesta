@@ -1,14 +1,21 @@
-import { Routes, Route } from "react-router-dom";
+﻿import { Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import Navbar from "./components/Navbar";
 import RequireAuth from "./auth/RequireAuth";
 import api from "./utils/axios";
+import { clearAuth, getToken, setAuth } from "./utils/storage";
 
 /* Layouts */
 import AdminLayout from "./layouts/AdminLayout";
 import TeacherLayout from "./layouts/TeacherLayout";
 import StudentLayout from "./layouts/StudentLayout";
 import ParentLayout from "./layouts/ParentLayout";
+import PublicLayout from "./layouts/PublicLayout";
+
+/* Public Pages */
+import Home from "./pages/common/Home";
+import Login from "./pages/common/Login";
+import Register from "./pages/common/Register";
 
 /* Admin Pages */
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -21,10 +28,12 @@ import Logs from "./pages/admin/Logs";
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
 import CreateTest from "./pages/teacher/CreateTest";
 import Questions from "./pages/teacher/Questions";
+import AITestCreator from "./pages/teacher/AITestCreator";
 import Submissions from "./pages/teacher/Submissions";
 import TeacherMaterials from "./pages/teacher/Materials";
 import Tests from "./pages/teacher/Tests";
 import TeacherLectures from "./pages/teacher/Lectures";
+import TeacherExamPrepTracking from "./pages/teacher/TeacherExamPrepTracking";
 
 /* Student Pages */
 import StudentDashboard from "./pages/student/StudentDashboard";
@@ -34,27 +43,35 @@ import Results from "./pages/student/Results";
 import StudentMaterials from "./pages/student/Materials";
 import ConnectTeacher from "./pages/student/ConnectTeacher";
 import StudentLectures from "./pages/student/Lectures";
+import AIRoadmaps from "./pages/student/AIRoadmaps";
+import ExamAutoPrep from "./pages/student/ExamAutoPrep";
+import PYQPractice from "./pages/student/PYQPractice";
 
 /* Parent Pages */
 import ParentDashboard from "./pages/parent/ParentDashboard";
 import ParentResults from "./pages/parent/ParentResults";
-
-/* Parent Pages */
-import ParentDashboard from "./pages/parent/ParentDashboard";
+import ParentExamPrepSummary from "./pages/parent/ParentExamPrepSummary";
 
 export default function App() {
-  // ✅ AUTH PERSISTENCE CHECK
   useEffect(() => {
     const syncAuth = async () => {
       try {
+        const token = getToken();
+        if (!token) {
+          clearAuth();
+          return;
+        }
+
         const res = await api.get("/auth/me", { withCredentials: true });
-        localStorage.setItem("user", JSON.stringify(res.data.user));
+        if (res.data?.user) {
+          setAuth({ token, user: res.data.user });
+        }
       } catch {
-        localStorage.removeItem("user");
+        clearAuth();
       }
     };
 
-    syncAuth();
+    void syncAuth();
   }, []);
 
   return (
@@ -63,9 +80,11 @@ export default function App() {
 
       <Routes>
         {/* PUBLIC */}
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+        </Route>
 
         {/* ADMIN */}
         <Route
@@ -97,6 +116,8 @@ export default function App() {
           <Route path="tests" element={<Tests />} />
           <Route path="create-test" element={<CreateTest />} />
           <Route path="questions" element={<Questions />} />
+          <Route path="ai-test" element={<AITestCreator />} />
+          <Route path="exam-prep" element={<TeacherExamPrepTracking />} />
           <Route path="submissions/:testId" element={<Submissions />} />
           <Route path="materials" element={<TeacherMaterials />} />
           <Route path="lectures" element={<TeacherLectures />} />
@@ -117,6 +138,9 @@ export default function App() {
           <Route path="results" element={<Results />} />
           <Route path="materials" element={<StudentMaterials />} />
           <Route path="lectures" element={<StudentLectures />} />
+          <Route path="ai-roadmaps" element={<AIRoadmaps />} />
+          <Route path="exam-auto-prep" element={<ExamAutoPrep />} />
+          <Route path="pyq-practice" element={<PYQPractice />} />
           <Route path="connect" element={<ConnectTeacher />} />
         </Route>
 
@@ -130,6 +154,7 @@ export default function App() {
           }
         >
           <Route index element={<ParentDashboard />} />
+          <Route path="exam-prep" element={<ParentExamPrepSummary />} />
           <Route path="results/:studentId" element={<ParentResults />} />
         </Route>
       </Routes>

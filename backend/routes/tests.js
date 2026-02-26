@@ -9,6 +9,7 @@ import {
 
 import {
   createTest,
+  deleteTest,
   getTest,
   listTests,
   togglePublishTest,
@@ -53,6 +54,14 @@ router.put(
   authorize("teacher", "admin"),
   validate(objectIdParamSchema("id")),
   togglePublishTest
+);
+
+router.delete(
+  "/:id",
+  protect,
+  authorize("teacher", "admin"),
+  validate(objectIdParamSchema("id")),
+  deleteTest
 );
 
 export default router;

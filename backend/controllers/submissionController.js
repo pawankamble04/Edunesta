@@ -7,6 +7,17 @@ import TestAttempt from "../models/TestAttempt.js";
 import { normalizeSubject } from "../utils/subject.js";
 import { getStudentDailySummary } from "../utils/dailySummary.js";
 
+const isTransactionUnsupportedError = (error) => {
+  const message = String(error?.message || "");
+  return (
+    /Transaction numbers are only allowed on a replica set member or mongos/i.test(
+      message
+    ) ||
+    /does not support transactions/i.test(message) ||
+    /NoSuchTransaction/i.test(message)
+  );
+};
+
 /* ================================
    STUDENT - SUBMIT TEST
 ================================ */
@@ -99,7 +110,7 @@ export const submitTest = async (req, res) => {
     const percentage =
       totalMarks > 0 ? Number(((score / totalMarks) * 100).toFixed(2)) : 0;
 
-    const submission = await Submission.create({
+    const submissionPayload = {
       student: studentId,
       test: testId,
       answers,
@@ -107,11 +118,47 @@ export const submitTest = async (req, res) => {
       totalMarks,
       percentage,
       submittedAt: new Date(),
-    });
+    };
 
-    attempt.isSubmitted = true;
-    attempt.submittedAt = new Date();
-    await attempt.save();
+    const markAttemptSubmitted = async (session = null) => {
+      attempt.isSubmitted = true;
+      attempt.submittedAt = new Date();
+      if (session) {
+        await attempt.save({ session });
+      } else {
+        await attempt.save();
+      }
+    };
+
+    const createSubmission = async (session = null) => {
+      if (session) {
+        const created = await Submission.create([submissionPayload], { session });
+        return created[0];
+      }
+      return Submission.create(submissionPayload);
+    };
+
+    let submission;
+
+    try {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          submission = await createSubmission(session);
+          await markAttemptSubmitted(session);
+        });
+      } finally {
+        await session.endSession();
+      }
+    } catch (transactionError) {
+      if (!isTransactionUnsupportedError(transactionError)) {
+        throw transactionError;
+      }
+
+      // Fallback for deployments where MongoDB transactions are unavailable.
+      submission = await createSubmission();
+      await markAttemptSubmitted();
+    }
 
     return res.json({
       message: "Test submitted successfully",

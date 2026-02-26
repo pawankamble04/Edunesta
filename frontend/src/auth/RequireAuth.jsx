@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+﻿import { Navigate, Outlet } from "react-router-dom";
 import { getToken, getUser } from "../utils/storage";
 
 export default function RequireAuth({ role, children }) {
@@ -6,19 +6,16 @@ export default function RequireAuth({ role, children }) {
   const user = getUser();
 
   if (!token || !user) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
-  // 🔒 FIX: Case-insensitive role comparison
-  if (role && user.role?.toLowerCase() !== role?.toLowerCase()) {
-    return <Navigate to="/" />;
-  }
-
-  // ❌ Role mismatch
-  if (role && user.role.toLowerCase() !== role.toLowerCase()) {
+  if (role && user.role?.toLowerCase() !== role.toLowerCase()) {
     return <Navigate to="/" replace />;
   }
 
-  // ✅ Authorized
+  if (children) {
+    return children;
+  }
+
   return <Outlet />;
 }

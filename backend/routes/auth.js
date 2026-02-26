@@ -5,6 +5,7 @@ import {
   googleAuth,
   generateStudentLinkCode,
   getMe,
+  logout,
 } from "../controllers/authController.js";
 import { protect } from "../middleware/auth.js";
 import authorize from "../middleware/roles.js";
@@ -34,6 +35,7 @@ const loginLimiter = createRateLimiter({
 router.post("/register", authLimiter, validate(registerSchema), register);
 router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/google", authLimiter, validate(googleAuthSchema), googleAuth);
+router.post("/logout", logout);
 
 // ================= GET CURRENT USER =================
 router.get("/me", protect, getMe);

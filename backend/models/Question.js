@@ -32,6 +32,30 @@ const questionSchema = new mongoose.Schema(
       min: 1,
     },
     topic: String,
+    isPyq: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    pyqExamType: {
+      type: String,
+      enum: ["", "JEE", "NEET"],
+      default: "",
+      index: true,
+    },
+    pyqYear: {
+      type: Number,
+      min: 1990,
+      max: 2100,
+      default: null,
+      index: true,
+    },
+    pyqSource: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: "",
+    },
     aiReview: {
       clarityScore: {
         type: Number,

@@ -36,6 +36,23 @@ export default function Home() {
             for Students & Teachers
           </p>
 
+          <div
+            className="mb-8 rounded-lg border border-white/30 bg-black/25 p-4 text-sm text-blue-50 animate-fade-up"
+            style={{ animationDelay: "0.45s" }}
+          >
+            <p className="text-xs uppercase tracking-wide text-blue-200 mb-1">
+              Unique Feature
+            </p>
+            <p className="font-semibold mb-1">
+              Auto Attendance + Parent Daily Alert + AI Study Coach
+            </p>
+            <p>
+              Opening a lecture can auto-mark attendance, combine with test
+              performance for daily status, notify parents, and generate AI
+              next-step guidance.
+            </p>
+          </div>
+
           {/* Buttons */}
           <div
             className="flex gap-4 animate-fade-up"

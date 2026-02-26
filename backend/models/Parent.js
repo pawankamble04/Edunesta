@@ -19,10 +19,9 @@ const parentSchema = new mongoose.Schema(
       required: true,
     },
 
-    // ✅ FIXED
     student: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
+      ref: "User",
       default: null,
     },
 

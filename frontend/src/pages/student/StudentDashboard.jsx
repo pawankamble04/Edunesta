@@ -3,14 +3,29 @@ import { useMemo, useRef, useState } from "react";
 import API from "../../services/api";
 import useAI from "../../utils/useAI";
 import useVisiblePolling from "../../utils/useVisiblePolling";
+import RoleStudyBuddyChat from "../../components/ai/RoleStudyBuddyChat";
 
 const STUDENT_DASHBOARD_REFRESH_MS = 15_000;
 const AI_REFRESH_MIN_INTERVAL_MS = 120_000;
+const TOPIC_MASTERY_REFRESH_MS = 60_000;
+const MICRO_RETEST_QUESTION_COUNT = 5;
 
 const normalizeSubject = (value) => {
   const subject = String(value || "").trim().toLowerCase();
   if (["math", "maths", "mathematics"].includes(subject)) return "math";
   return subject;
+};
+
+const getMasteryTextClass = (level) => {
+  if (level === "Mastered") return "text-green-700";
+  if (level === "Developing") return "text-amber-700";
+  return "text-red-700";
+};
+
+const getMasteryBarClass = (level) => {
+  if (level === "Mastered") return "bg-green-500";
+  if (level === "Developing") return "bg-amber-500";
+  return "bg-red-500";
 };
 
 export default function StudentDashboard() {
@@ -36,6 +51,15 @@ export default function StudentDashboard() {
     type: "",
     text: "",
   });
+  const [topicMastery, setTopicMastery] = useState(null);
+  const [topicMasteryLoading, setTopicMasteryLoading] = useState(true);
+  const [topicMasteryError, setTopicMasteryError] = useState("");
+  const [microRetest, setMicroRetest] = useState(null);
+  const [microRetestLoading, setMicroRetestLoading] = useState(false);
+  const [microRetestError, setMicroRetestError] = useState("");
+  const [microAnswers, setMicroAnswers] = useState({});
+  const [microSubmitLoading, setMicroSubmitLoading] = useState(false);
+  const [microResult, setMicroResult] = useState(null);
   const lastAiSignatureRef = useRef("");
   const lastAiRefreshAtRef = useRef(0);
 
@@ -116,6 +140,116 @@ export default function StudentDashboard() {
       setCodeStatus({ type: "success", text: "Code copied." });
     } catch {
       setCodeStatus({ type: "error", text: "Could not copy code." });
+    }
+  };
+
+  const loadTopicMastery = async () => {
+    try {
+      if (!topicMastery) {
+        setTopicMasteryLoading(true);
+      }
+      setTopicMasteryError("");
+      const res = await API.get("/analytics/student/topic-mastery");
+      setTopicMastery({
+        topics: Array.isArray(res.data?.topics) ? res.data.topics : [],
+        weakTopics: Array.isArray(res.data?.weakTopics) ? res.data.weakTopics : [],
+      });
+    } catch (err) {
+      setTopicMasteryError(
+        err.response?.data?.message || "Failed to load topic mastery"
+      );
+    } finally {
+      setTopicMasteryLoading(false);
+    }
+  };
+
+  const generateMicroRetest = async () => {
+    try {
+      setMicroRetestLoading(true);
+      setMicroRetestError("");
+      setMicroResult(null);
+      setMicroAnswers({});
+
+      const suggestedTopics = (topicMastery?.weakTopics || [])
+        .slice(0, 3)
+        .map((topic) => topic.topic);
+
+      const res = await API.post("/analytics/student/micro-retest", {
+        count: MICRO_RETEST_QUESTION_COUNT,
+        topics: suggestedTopics,
+      });
+
+      const retest = res.data?.retest || null;
+      if (!retest || !Array.isArray(retest.questions) || retest.questions.length === 0) {
+        setMicroRetestError("Micro-retest could not be generated right now.");
+        setMicroRetest(null);
+        return;
+      }
+
+      setMicroRetest(retest);
+
+      if (res.data?.mastery) {
+        setTopicMastery({
+          topics: Array.isArray(res.data.mastery.topics)
+            ? res.data.mastery.topics
+            : topicMastery?.topics || [],
+          weakTopics: Array.isArray(res.data.mastery.weakTopics)
+            ? res.data.mastery.weakTopics
+            : topicMastery?.weakTopics || [],
+        });
+      }
+    } catch (err) {
+      setMicroRetestError(
+        err.response?.data?.message || "Failed to generate micro-retest"
+      );
+      setMicroRetest(null);
+    } finally {
+      setMicroRetestLoading(false);
+    }
+  };
+
+  const selectMicroAnswer = (questionId, selectedIndex) => {
+    setMicroAnswers((prev) => ({
+      ...prev,
+      [questionId]: selectedIndex,
+    }));
+  };
+
+  const submitMicroRetest = async () => {
+    if (!microRetest || !Array.isArray(microRetest.questions)) {
+      setMicroRetestError("Generate a micro-retest first.");
+      return;
+    }
+
+    const unanswered = microRetest.questions.filter(
+      (question) => !Number.isFinite(Number(microAnswers[question.id]))
+    );
+
+    if (unanswered.length > 0) {
+      setMicroRetestError(
+        `Please answer all ${microRetest.questions.length} questions before submitting.`
+      );
+      return;
+    }
+
+    try {
+      setMicroSubmitLoading(true);
+      setMicroRetestError("");
+      const answers = microRetest.questions.map((question) => ({
+        questionId: question.id,
+        selected: Number(microAnswers[question.id]),
+      }));
+      const res = await API.post("/analytics/student/micro-retest/submit", {
+        answers,
+      });
+      setMicroResult(res.data?.result || null);
+      await loadTopicMastery();
+    } catch (err) {
+      setMicroRetestError(
+        err.response?.data?.message || "Failed to submit micro-retest"
+      );
+    } finally {
+      setMicroSubmitLoading(false);
     }
   };
 
@@ -227,6 +361,7 @@ export default function StudentDashboard() {
   };
 
   useVisiblePolling(refreshDashboard, STUDENT_DASHBOARD_REFRESH_MS);
+  useVisiblePolling(loadTopicMastery, TOPIC_MASTERY_REFRESH_MS);
 
   /* ===============================
      SUBJECT CARDS
@@ -411,6 +546,179 @@ export default function StudentDashboard() {
         </div>
       </div>
 
+      {/* ================= TOPIC MASTERY + MICRO RETEST ================= */}
+      <div className="bg-white border rounded-lg p-6 shadow">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <h2 className="text-lg font-semibold">
+              Topic Mastery Map + Adaptive Micro-Retest
+            </h2>
+            <p className="text-sm text-gray-600">
+              Track weak topics and practice with a targeted{" "}
+              {MICRO_RETEST_QUESTION_COUNT}-question mini test.
+            </p>
+          </div>
+          <button
+            onClick={generateMicroRetest}
+            disabled={
+              microRetestLoading ||
+              topicMasteryLoading ||
+              !(topicMastery?.topics || []).length
+            }
+            className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {microRetestLoading
+              ? "Generating..."
+              : `Generate ${MICRO_RETEST_QUESTION_COUNT}Q Retest`}
+          </button>
+        </div>
+
+        {topicMasteryError && (
+          <p className="text-sm text-red-600 mb-3">{topicMasteryError}</p>
+        )}
+
+        {topicMasteryLoading && !topicMastery ? (
+          <p className="text-sm text-gray-500 mb-3">Loading topic mastery...</p>
+        ) : (topicMastery?.topics || []).length === 0 ? (
+          <p className="text-sm text-gray-500 mb-3">
+            Attempt tests to unlock topic mastery insights.
+          </p>
+        ) : (
+          <div className="space-y-3 mb-4">
+            {(topicMastery.topics || []).map((topic) => (
+              <div key={topic.topic} className="rounded border p-3 bg-gray-50">
+                <div className="flex items-center justify-between gap-3 mb-1">
+                  <p className="text-sm font-medium">{topic.topic}</p>
+                  <p
+                    className={`text-sm font-semibold ${getMasteryTextClass(
+                      topic.level
+                    )}`}
+                  >
+                    {topic.masteryPercent}% ({topic.level})
+                  </p>
+                </div>
+                <div className="h-2 rounded bg-gray-200">
+                  <div
+                    className={`h-2 rounded ${getMasteryBarClass(topic.level)}`}
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.max(0, Number(topic.masteryPercent) || 0)
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Attempts: {topic.attempted || 0} | Correct: {topic.correct || 0}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(topicMastery?.weakTopics || []).length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">
+              Weak Topics
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(topicMastery.weakTopics || []).map((topic) => (
+                <span
+                  key={`weak-${topic.topic}`}
+                  className="rounded-full bg-amber-100 text-amber-800 px-3 py-1 text-xs font-medium"
+                >
+                  {topic.topic} ({topic.masteryPercent}%)
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {microRetestError && (
+          <p className="text-sm text-red-600 mb-3">{microRetestError}</p>
+        )}
+
+        {microRetest?.questions?.length > 0 && (
+          <div className="rounded-lg border bg-indigo-50 p-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-indigo-900">
+                Micro-Retest ({microRetest.questionCount} Questions)
+              </p>
+              {(microRetest.targetTopics || []).length > 0 && (
+                <p className="text-xs text-indigo-700">
+                  Topics: {(microRetest.targetTopics || []).join(", ")}
+                </p>
+              )}
+            </div>
+
+            {(microRetest.questions || []).map((question) => (
+              <div key={question.id} className="rounded border bg-white p-3">
+                <p className="text-sm font-medium mb-1">
+                  {question.order}. {question.text}
+                </p>
+                <p className="text-xs text-gray-500 mb-2">
+                  Topic: {question.topic} | Difficulty: {question.difficulty}
+                </p>
+
+                <div className="space-y-2">
+                  {(question.options || []).map((option, optionIndex) => (
+                    <label
+                      key={`${question.id}-${optionIndex}`}
+                      className="flex items-start gap-2 text-sm"
+                    >
+                      <input
+                        type="radio"
+                        name={`micro-retest-${question.id}`}
+                        checked={
+                          Number(microAnswers[question.id]) === optionIndex
+                        }
+                        onChange={() =>
+                          selectMicroAnswer(question.id, optionIndex)
+                        }
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={submitMicroRetest}
+              disabled={microSubmitLoading}
+              className="bg-indigo-700 text-white px-4 py-2 rounded hover:bg-indigo-800 disabled:opacity-60"
+            >
+              {microSubmitLoading ? "Submitting..." : "Submit Retest"}
+            </button>
+
+            {microResult && (
+              <div className="rounded border bg-white p-3">
+                <p className="text-sm font-semibold text-gray-900">
+                  Score: {microResult.scoreText} ({microResult.accuracy}%)
+                </p>
+
+                {(microResult.topicBreakdown || []).length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {(microResult.topicBreakdown || []).map((topic) => (
+                      <p key={`micro-result-${topic.topic}`} className="text-xs">
+                        {topic.topic}: {topic.correct}/{topic.attempted} (
+                        {topic.accuracy}%)
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {(microResult.weakTopics || []).length > 0 && (
+                  <p className="text-xs text-amber-700 mt-2">
+                    Focus next: {(microResult.weakTopics || []).join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ================= WEEKLY PLAN ================= */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -498,6 +806,8 @@ export default function StudentDashboard() {
           </pre>
         )}
       </div>
+
+      <RoleStudyBuddyChat role="student" />
 
     </div>
   );

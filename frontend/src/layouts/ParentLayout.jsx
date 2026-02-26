@@ -26,6 +26,16 @@ export default function ParentLayout() {
           >
             Dashboard
           </NavLink>
+          <NavLink
+            to="/parent/exam-prep"
+            style={({ isActive }) => ({
+              color: isActive ? "#38bdf8" : "#fff",
+              textDecoration: "none",
+              fontWeight: "500",
+            })}
+          >
+            JEE/NEET Prep
+          </NavLink>
         </nav>
       </aside>
 

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+﻿import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useMemo } from "react";
 import API from "../../services/api";
 
@@ -31,9 +31,6 @@ export default function Tests() {
     fetchTests();
   }, []);
 
-  /* ===============================
-     SUBJECT ANALYTICS
-  =============================== */
   const subjectStats = useMemo(() => {
     const stats = {};
     tests.forEach((t) => {
@@ -42,46 +39,30 @@ export default function Tests() {
     return stats;
   }, [tests]);
 
-  /* ===============================
-     FILTER + SEARCH + SORT
-  =============================== */
   const processedTests = useMemo(() => {
     let filtered = [...tests];
 
-    // Subject filter
     if (selectedSubject !== "All") {
-      filtered = filtered.filter(
-        (t) => t.subject === selectedSubject
-      );
+      filtered = filtered.filter((t) => t.subject === selectedSubject);
     }
 
-    // Search filter
     if (searchTerm.trim() !== "") {
       filtered = filtered.filter((t) =>
-        t.title
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+        t.title.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Sort
     filtered.sort((a, b) => {
       if (sortOrder === "newest") {
         return new Date(b.createdAt) - new Date(a.createdAt);
-      } else {
-        return new Date(a.createdAt) - new Date(b.createdAt);
       }
+      return new Date(a.createdAt) - new Date(b.createdAt);
     });
 
     return filtered;
   }, [tests, selectedSubject, searchTerm, sortOrder]);
 
-  /* ===============================
-     PAGINATION
-  =============================== */
-  const totalPages = Math.ceil(
-    processedTests.length / testsPerPage
-  );
+  const totalPages = Math.ceil(processedTests.length / testsPerPage);
 
   const paginatedTests = processedTests.slice(
     (currentPage - 1) * testsPerPage,
@@ -95,9 +76,7 @@ export default function Tests() {
 
       setTests((prev) =>
         prev.map((t) =>
-          t._id === id
-            ? { ...t, isPublished: res.data.isPublished }
-            : t
+          t._id === id ? { ...t, isPublished: res.data.isPublished } : t
         )
       );
     } catch (err) {
@@ -107,56 +86,59 @@ export default function Tests() {
     }
   };
 
-  const subjects = [
-    "All",
-    ...new Set(tests.map((t) => t.subject)),
-  ];
+  const deleteTest = async (id) => {
+    if (!window.confirm("Delete this test and all submissions?")) return;
+    setActionError("");
+
+    try {
+      await API.delete(`/tests/${id}`);
+      setTests((prev) => prev.filter((t) => t._id !== id));
+    } catch (err) {
+      setActionError(err.response?.data?.message || "Failed to delete test");
+    }
+  };
+
+  const subjects = ["All", ...new Set(tests.map((t) => t.subject))];
 
   return (
     <div>
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold">My Tests</h1>
-        <Link
-          to="/teacher/create-test"
-          className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
-        >
-          Create Test
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/teacher/ai-test"
+            className="bg-indigo-600 text-white px-4 py-2 rounded text-sm"
+          >
+            AI Test
+          </Link>
+          <Link
+            to="/teacher/create-test"
+            className="bg-blue-600 text-white px-4 py-2 rounded text-sm"
+          >
+            Create Test
+          </Link>
+        </div>
       </div>
 
-      {/* ANALYTICS */}
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Object.entries(subjectStats).map(
-          ([subject, count]) => (
-            <div
-              key={subject}
-              className="bg-white border p-4 rounded shadow-sm"
-            >
-              <p className="text-sm text-gray-500">
-                {subject}
-              </p>
-              <p className="text-xl font-bold">
-                {count}
-              </p>
-            </div>
-          )
-        )}
+        {Object.entries(subjectStats).map(([subject, count]) => (
+          <div key={subject} className="bg-white border p-4 rounded shadow-sm">
+            <p className="text-sm text-gray-500">{subject}</p>
+            <p className="text-xl font-bold">{count}</p>
+          </div>
+        ))}
       </div>
 
-      {/* FILTER BAR */}
       {actionError && (
         <p className="mb-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
           {actionError}
         </p>
       )}
+
       <div className="flex flex-wrap gap-4 mb-4">
-        {/* Subject Filter */}
         <select
           value={selectedSubject}
-          onChange={(e) =>
-            setSelectedSubject(e.target.value)
-          }
+          onChange={(e) => setSelectedSubject(e.target.value)}
           className="border p-2 rounded"
         >
           {subjects.map((subj) => (
@@ -166,48 +148,33 @@ export default function Tests() {
           ))}
         </select>
 
-        {/* Search */}
         <input
           type="text"
           placeholder="Search test title..."
           value={searchTerm}
-          onChange={(e) =>
-            setSearchTerm(e.target.value)
-          }
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="border p-2 rounded"
         />
 
-        {/* Sort */}
         <select
           value={sortOrder}
-          onChange={(e) =>
-            setSortOrder(e.target.value)
-          }
+          onChange={(e) => setSortOrder(e.target.value)}
           className="border p-2 rounded"
         >
-          <option value="newest">
-            Newest First
-          </option>
-          <option value="oldest">
-            Oldest First
-          </option>
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
         </select>
       </div>
 
-      {/* TABLE */}
       {loading && <p>Loading tests...</p>}
 
-      {!loading && paginatedTests.length === 0 && (
-        <p>No tests found.</p>
-      )}
+      {!loading && paginatedTests.length === 0 && <p>No tests found.</p>}
 
       {!loading && paginatedTests.length > 0 && (
         <table className="w-full bg-white border">
           <thead className="bg-gray-100 text-sm">
             <tr>
-              <th className="p-2 text-left">
-                Title
-              </th>
+              <th className="p-2 text-left">Title</th>
               <th>Subject</th>
               <th>Duration</th>
               <th>Status</th>
@@ -219,23 +186,15 @@ export default function Tests() {
           <tbody className="text-sm">
             {paginatedTests.map((test) => (
               <tr key={test._id} className="border-t">
-                <td className="p-2 font-medium">
-                  {test.title}
-                </td>
+                <td className="p-2 font-medium">{test.title}</td>
                 <td>{test.subject}</td>
-                <td>
-                  {test.durationMinutes} mins
-                </td>
+                <td>{test.durationMinutes} mins</td>
                 <td
                   className={
-                    test.isPublished
-                      ? "text-green-600"
-                      : "text-yellow-600"
+                    test.isPublished ? "text-green-600" : "text-yellow-600"
                   }
                 >
-                  {test.isPublished
-                    ? "Published"
-                    : "Draft"}
+                  {test.isPublished ? "Published" : "Draft"}
                 </td>
                 <td>
                   {test.aiReadiness?.aiReady ? (
@@ -261,32 +220,23 @@ export default function Tests() {
                   </Link>
 
                   <button
-                    onClick={() =>
-                      togglePublish(test._id)
-                    }
+                    onClick={() => togglePublish(test._id)}
                     className={`text-sm ${
-                      test.isPublished
-                        ? "text-red-600"
-                        : "text-green-600"
+                      test.isPublished ? "text-red-600" : "text-green-600"
                     }`}
                   >
-                    {test.isPublished
-                      ? "Unpublish"
-                      : "Publish"}
+                    {test.isPublished ? "Unpublish" : "Publish"}
                   </button>
 
                   <button
                     onClick={() =>
-                      navigate(
-                        `/teacher/submissions/${test._id}`
-                      )
+                      navigate(`/teacher/submissions/${test._id}`)
                     }
                     className="text-indigo-600"
                   >
                     Submissions
                   </button>
 
-                  {/* DELETE TEST */}
                   <button
                     onClick={() => deleteTest(test._id)}
                     className="text-red-600 hover:underline"
@@ -300,26 +250,18 @@ export default function Tests() {
         </table>
       )}
 
-      {/* PAGINATION */}
       <div className="flex gap-2 mt-4">
-        {Array.from(
-          { length: totalPages },
-          (_, i) => (
-            <button
-              key={i}
-              onClick={() =>
-                setCurrentPage(i + 1)
-              }
-              className={`px-3 py-1 border rounded ${
-                currentPage === i + 1
-                  ? "bg-blue-600 text-white"
-                  : ""
-              }`}
-            >
-              {i + 1}
-            </button>
-          )
-        )}
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentPage(i + 1)}
+            className={`px-3 py-1 border rounded ${
+              currentPage === i + 1 ? "bg-blue-600 text-white" : ""
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
       </div>
     </div>
   );
